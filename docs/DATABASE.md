@@ -7,7 +7,7 @@
 
 ## Migraciones
 
-Las migraciones viven en `backend/migrations/` como archivos SQL numerados (`0001_init.sql`, `0002_indexes.sql`).
+Las migraciones viven en `backend/migrations/` como archivos SQL numerados (`0001_init.sql`, `0002_indexes.sql`, `0003_auth.sql`, …). Ver el detalle en [`docs/DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md) (ERD + guía de extensión).
 
 | Entorno | Comando |
 |---|---|
@@ -41,6 +41,7 @@ Las migraciones viven en `backend/migrations/` como archivos SQL numerados (`000
 | `purchases` / `purchase_items` | Compras y sus líneas (cantidad, costo unitario, subtotal). |
 | `sales` / `sale_items` | Ventas y sus líneas. `sale_items.unit_cost_snapshot` guarda el **costo histórico** congelado al vender. |
 | `inventory_movements` | **Modelo autoritativo de inventario** (ver convención de signos). |
+| `sessions` | Sesiones de acceso (token hash, expiración a 90 días). |
 | `sync_operations` | Registro de operaciones sincronizadas desde el outbox (deduplicación). |
 
 ### Convención de cantidades firmadas (inventario)

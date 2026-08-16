@@ -13,6 +13,7 @@
     "typecheck": "pnpm --filter @nalu/backend typecheck && pnpm --filter @nalu/frontend typecheck",
     "db:migrate": "pnpm --filter @nalu/backend db:migrate",
     "db:seed": "pnpm --filter @nalu/backend db:seed",
+    "db:backup": "mkdir -p backups && cd backend && pnpm exec wrangler d1 export nalu-db --remote --output ../backups/nalu-db-$(date +%Y%m%d-%H%M).sql && cd .. && echo \"✓ Respaldo en backups/\"",
     "preview": "pnpm --filter @nalu/frontend preview"
   },
   "devDependencies": {

@@ -131,7 +131,9 @@ El despliegue en producción se documenta en [docs/DEPLOYMENT.md](docs/DEPLOYMEN
 
 ## 🧪 Calidad
 
-- ✅ **68 tests unitarios + 4 e2e**: dominio (16), casos límite de dominio (8), API (20), frontend (24: componentes, formato, outbox, caché de inventario) + smoke e2e (Playwright).
+- ✅ **80 tests unitarios + 6 e2e**: dominio (16), casos límite (8), alertas por email (3), API con auth (26), frontend (27: componentes, login, formato, outbox, caché) + smoke e2e con login (Playwright).
+- 🔐 **Autenticación por PIN** con sesión de 90 días (sin cierres constantes en el móvil).
+- 📬 **Alertas por email**: aviso de stock bajo + resumen diario (Cloudflare Email Sending).
 - ✅ TypeScript **estricto** en ambos paquetes.
 - ✅ ESLint en cero errores.
 - ✅ Build de producción verificado.
