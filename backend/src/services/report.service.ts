@@ -1,4 +1,4 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import { calculateProfitMargin } from "../domain/calculations/sales";
 import { roundMoney } from "../domain/calculations/money";
 import { createPurchaseRepository } from "../repositories/purchase.repository";
@@ -11,7 +11,7 @@ export interface DateRange {
 }
 
 export function createReportService(deps: {
-  db: Db;
+  db: DrizzleDb;
   getBusinessId: () => Promise<string>;
   getInventory: () => Promise<unknown>;
 }) {

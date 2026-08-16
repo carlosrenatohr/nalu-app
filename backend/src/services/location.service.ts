@@ -1,8 +1,8 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import type { Location } from "../domain/types";
 import { createLocationRepository } from "../repositories/location.repository";
 
-export function createLocationService(deps: { db: Db; getBusinessId: () => Promise<string> }) {
+export function createLocationService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
   const locationRepo = createLocationRepository(db);
 

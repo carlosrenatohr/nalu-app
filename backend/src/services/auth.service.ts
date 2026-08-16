@@ -1,4 +1,6 @@
-import type { Db } from "../db/types";
+import { eq, asc } from "drizzle-orm";
+import type { DrizzleDb } from "../db/drizzle-types";
+import { businesses, sessions } from "../db/schema";
 import type { Business } from "../domain/types";
 import { createBusinessRepository } from "../repositories/business.repository";
 import { createSessionRepository } from "../repositories/session.repository";
@@ -22,20 +24,23 @@ export interface LoginResult {
   business: Business;
 }
 
-export function createAuthService(deps: { db: Db; getBusinessId: () => Promise<string> }) {
-  // El login es contra el negocio por defecto (uno solo por ahora);
-  // getBusinessId se mantiene en la firma por consistencia con los demás.
+export function createAuthService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db } = deps;
   const businessRepo = createBusinessRepository(db);
-  const sessions = createSessionRepository(db);
+  const sessionsRepo = createSessionRepository(db);
 
   /** Datos de acceso del negocio (PIN) — nunca se exponen por la API. */
   async function getCredentials(): Promise<{ id: string; pinHash: string; pinSalt: string } | null> {
-    return db.first<{ id: string; pinHash: string; pinSalt: string }>(
-      `SELECT id, pin_hash AS pinHash, pin_salt AS pinSalt
-       FROM businesses
-       ORDER BY created_at LIMIT 1`,
-    );
+    const row = await db
+      .select({
+        id: businesses.id,
+        pinHash: businesses.pinHash,
+        pinSalt: businesses.pinSalt,
+      })
+      .from(businesses)
+      .orderBy(asc(businesses.createdAt))
+      .then((rows: { id: string; pinHash: string | null; pinSalt: string | null }[]) => rows[0] ?? null);
+    return row ?? null;
   }
 
   async function login(pin: string): Promise<LoginResult> {
@@ -48,34 +53,35 @@ export function createAuthService(deps: { db: Db; getBusinessId: () => Promise<s
     }
 
     const token = generateToken();
-    await sessions.create({
+    await sessionsRepo.create({
       tokenHash: hashToken(token),
       businessId: creds.id,
       createdAt: "",
       expiresAt: "",
     });
-    const expiresAt = await db.first<{ expiresAt: string }>(
-      `SELECT expires_at AS expiresAt FROM sessions WHERE token_hash = ?`,
-      [hashToken(token)],
-    );
+    const sessionRow = await db
+      .select({ expiresAt: sessions.expiresAt })
+      .from(sessions)
+      .where(eq(sessions.tokenHash, hashToken(token)))
+      .then((rows: { expiresAt: string }[]) => rows[0] ?? null);
     const business = await businessRepo.getDefault();
-    return { token, expiresAt: expiresAt?.expiresAt ?? "", business: business! };
+    return { token, expiresAt: sessionRow?.expiresAt ?? "", business: business! };
   }
 
   async function logout(token: string): Promise<void> {
-    await sessions.delete(hashToken(token));
+    await sessionsRepo.delete(hashToken(token));
   }
 
   /** Devuelve el negocio si el token es válido; null si no. */
   async function me(token: string): Promise<Business | null> {
-    const session = await sessions.findByTokenHash(hashToken(token));
+    const session = await sessionsRepo.findByTokenHash(hashToken(token));
     if (!session) return null;
     return businessRepo.getDefault();
   }
 
   /** Valida un token y devuelve el businessId (usado por el middleware). */
   async function validateToken(token: string): Promise<string | null> {
-    const session = await sessions.findByTokenHash(hashToken(token));
+    const session = await sessionsRepo.findByTokenHash(hashToken(token));
     return session?.businessId ?? null;
   }
 
@@ -93,10 +99,14 @@ export function createAuthService(deps: { db: Db; getBusinessId: () => Promise<s
 
     // Salt nuevo por negocio: un cambio de PIN invalida hashes previos.
     const salt = generateSalt();
-    await db.run(
-      "UPDATE businesses SET pin_hash = ?, pin_salt = ?, updated_at = ? WHERE id = ?",
-      [hashPin(newPin, salt), salt, new Date().toISOString(), creds.id],
-    );
+    await db
+      .update(businesses)
+      .set({
+        pinHash: hashPin(newPin, salt),
+        pinSalt: salt,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(businesses.id, creds.id));
   }
 
   async function hasPin(): Promise<boolean> {

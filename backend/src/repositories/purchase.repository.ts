@@ -1,23 +1,7 @@
-import type { BatchStatement, Db } from "../db/types";
+import { eq, and, sql } from "drizzle-orm";
+import type { DrizzleDb } from "../db/drizzle-types";
+import { purchaseItems, purchases, suppliers, flavors } from "../db/schema";
 import type { Purchase, PurchaseItem } from "../domain/types";
-
-const PURCHASE_SELECT = `
-  SELECT
-    p.id, p.business_id AS businessId, p.supplier_id AS supplierId,
-    sp.name AS supplierName, p.purchase_date AS purchaseDate,
-    p.notes, p.total_cost AS totalCost,
-    p.created_at AS createdAt, p.updated_at AS updatedAt
-  FROM purchases p
-  JOIN suppliers sp ON sp.id = p.supplier_id
-`;
-
-const PURCHASE_ITEM_SELECT = `
-  SELECT
-    pi.id, pi.purchase_id AS purchaseId, pi.flavor_id AS flavorId,
-    f.name AS flavorName, pi.quantity, pi.unit_cost AS unitCost, pi.subtotal
-  FROM purchase_items pi
-  JOIN flavors f ON f.id = pi.flavor_id
-`;
 
 export interface NewPurchaseItem {
   id: string;
@@ -28,102 +12,99 @@ export interface NewPurchaseItem {
   subtotal: number;
 }
 
-export function createPurchaseRepository(db: Db) {
+export function createPurchaseRepository(db: DrizzleDb) {
   return {
-    buildCreateStatements(
-      purchase: {
-        id: string;
-        businessId: string;
-        supplierId: string;
-        purchaseDate: string;
-        notes: string | null;
-        totalCost: number;
-      },
-      items: NewPurchaseItem[],
-    ): BatchStatement[] {
-      const now = new Date().toISOString();
-      return [
-        {
-          sql: `INSERT INTO purchases
-            (id, business_id, supplier_id, purchase_date, notes, total_cost, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          params: [
-            purchase.id,
-            purchase.businessId,
-            purchase.supplierId,
-            purchase.purchaseDate,
-            purchase.notes,
-            purchase.totalCost,
-            now,
-            now,
-          ],
-        },
-        ...items.map((it) => ({
-          sql: `INSERT INTO purchase_items
-            (id, purchase_id, flavor_id, quantity, unit_cost, subtotal)
-            VALUES (?, ?, ?, ?, ?, ?)`,
-          params: [
-            it.id,
-            it.purchaseId,
-            it.flavorId,
-            it.quantity,
-            it.unitCost,
-            it.subtotal,
-          ],
-        })),
-      ];
-    },
-
     async list(
       businessId: string,
       from?: string,
       to?: string,
     ): Promise<Purchase[]> {
-      const where = ["p.business_id = ?"];
-      const params: string[] = [businessId];
-      if (from) {
-        where.push("p.purchase_date >= ?");
-        params.push(from);
-      }
-      if (to) {
-        where.push("p.purchase_date <= ?");
-        params.push(to);
-      }
-      const purchases = await db.all<Purchase>(
-        `${PURCHASE_SELECT} WHERE ${where.join(" AND ")} ORDER BY p.purchase_date DESC, p.created_at DESC`,
-        params,
-      );
-      return this.attachItems(businessId, purchases);
+      const conditions = [eq(purchases.businessId, businessId)];
+      if (from) conditions.push(sql`${purchases.purchaseDate} >= ${from}`);
+      if (to) conditions.push(sql`${purchases.purchaseDate} <= ${to}`);
+
+      const purchaseRows = await db
+        .select({
+          id: purchases.id,
+          businessId: purchases.businessId,
+          supplierId: purchases.supplierId,
+          supplierName: suppliers.name,
+          purchaseDate: purchases.purchaseDate,
+          notes: purchases.notes,
+          totalCost: purchases.totalCost,
+          createdAt: purchases.createdAt,
+          updatedAt: purchases.updatedAt,
+        })
+        .from(purchases)
+        .innerJoin(suppliers, eq(suppliers.id, purchases.supplierId))
+        .where(and(...conditions))
+        .orderBy(sql`${purchases.purchaseDate} DESC, ${purchases.createdAt} DESC`);
+
+      return this.attachItems(purchaseRows as unknown as Purchase[]);
     },
 
     async getById(businessId: string, id: string): Promise<Purchase | null> {
-      const purchase = await db.first<Purchase>(
-        `${PURCHASE_SELECT} WHERE p.business_id = ? AND p.id = ?`,
-        [businessId, id],
-      );
-      if (!purchase) return null;
-      const items = await db.all<PurchaseItem>(
-        `${PURCHASE_ITEM_SELECT} WHERE pi.purchase_id = ? ORDER BY pi.subtotal DESC`,
-        [id],
-      );
-      return { ...purchase, items };
+      const purchaseRow = await db
+        .select({
+          id: purchases.id,
+          businessId: purchases.businessId,
+          supplierId: purchases.supplierId,
+          supplierName: suppliers.name,
+          purchaseDate: purchases.purchaseDate,
+          notes: purchases.notes,
+          totalCost: purchases.totalCost,
+          createdAt: purchases.createdAt,
+          updatedAt: purchases.updatedAt,
+        })
+        .from(purchases)
+        .innerJoin(suppliers, eq(suppliers.id, purchases.supplierId))
+        .where(and(eq(purchases.businessId, businessId), eq(purchases.id, id)))
+        .then((rows: Purchase[]) => rows[0] ?? null);
+
+      if (!purchaseRow) return null;
+
+      const items = await db
+        .select({
+          id: purchaseItems.id,
+          purchaseId: purchaseItems.purchaseId,
+          flavorId: purchaseItems.flavorId,
+          flavorName: flavors.name,
+          quantity: purchaseItems.quantity,
+          unitCost: purchaseItems.unitCost,
+          subtotal: purchaseItems.subtotal,
+        })
+        .from(purchaseItems)
+        .innerJoin(flavors, eq(flavors.id, purchaseItems.flavorId))
+        .where(eq(purchaseItems.purchaseId, id))
+        .orderBy(sql`${purchaseItems.subtotal} DESC`);
+
+      return { ...purchaseRow, items: items as PurchaseItem[] } as Purchase;
     },
 
-    async attachItems(businessId: string, purchases: Purchase[]): Promise<Purchase[]> {
-      if (purchases.length === 0) return purchases;
-      const ids = purchases.map((p) => p.id);
-      const placeholders = ids.map(() => "?").join(", ");
-      const items = await db.all<PurchaseItem>(
-        `${PURCHASE_ITEM_SELECT} WHERE pi.purchase_id IN (${placeholders})`,
-        ids,
-      );
+    async attachItems(purchasesList: Purchase[]): Promise<Purchase[]> {
+      if (purchasesList.length === 0) return purchasesList;
+      const ids = purchasesList.map((p) => p.id);
+      const items = await db
+        .select({
+          id: purchaseItems.id,
+          purchaseId: purchaseItems.purchaseId,
+          flavorId: purchaseItems.flavorId,
+          flavorName: flavors.name,
+          quantity: purchaseItems.quantity,
+          unitCost: purchaseItems.unitCost,
+          subtotal: purchaseItems.subtotal,
+        })
+        .from(purchaseItems)
+        .innerJoin(flavors, eq(flavors.id, purchaseItems.flavorId))
+        .where(sql`${purchaseItems.purchaseId} IN ${ids}`);
+
       const byPurchase = new Map<string, PurchaseItem[]>();
       for (const item of items) {
         const list = byPurchase.get(item.purchaseId) ?? [];
-        list.push(item);
+        list.push(item as PurchaseItem);
         byPurchase.set(item.purchaseId, list);
       }
-      return purchases.map((p) => ({
+      return purchasesList.map((p) => ({
         ...p,
         items: byPurchase.get(p.id) ?? [],
       }));

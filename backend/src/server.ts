@@ -1,5 +1,7 @@
+import { asc } from "drizzle-orm";
 import { createApp } from "./app";
 import { openLocalDb } from "./db";
+import { businesses } from "./db/schema";
 import { seedDatabase } from "./db/seed";
 import { resolveBusinessId } from "./config/bootstrap";
 
@@ -16,7 +18,11 @@ async function main(): Promise<void> {
 
   // Si la base está vacía, cargamos los datos semilla automáticamente
   // (solo en desarrollo; en producción el seed se aplica con wrangler).
-  const business = await db.first<{ id: string }>("SELECT id FROM businesses LIMIT 1");
+  const rows: { id: string }[] = await db
+    .select({ id: businesses.id })
+    .from(businesses)
+    .orderBy(asc(businesses.createdAt));
+  const business = rows[0] ?? null;
   if (!business) {
     seedDatabase(conn);
     console.log("ℹ Base vacía: datos semilla cargados.");

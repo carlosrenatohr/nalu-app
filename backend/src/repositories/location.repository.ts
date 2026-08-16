@@ -1,26 +1,26 @@
-import type { Db } from "../db/types";
+import { eq, and, asc } from "drizzle-orm";
+import type { DrizzleDb } from "../db/drizzle-types";
+import { locations } from "../db/schema";
 import type { Location } from "../domain/types";
 import { newId } from "../utils/ids";
 
-const LOCATION_SELECT = `
-  SELECT id, business_id AS businessId, name, active
-  FROM locations
-`;
-
-export function createLocationRepository(db: Db) {
+export function createLocationRepository(db: DrizzleDb) {
   return {
     async list(businessId: string, includeInactive = false): Promise<Location[]> {
-      const rows = await db.all<{
-        id: string;
-        businessId: string;
-        name: string;
-        active: number;
-      }>(
-        `${LOCATION_SELECT}
-         WHERE business_id = ? ${includeInactive ? "" : "AND active = 1"}
-         ORDER BY name`,
-        [businessId],
-      );
+      const conditions = [eq(locations.businessId, businessId)];
+      if (!includeInactive) {
+        conditions.push(eq(locations.active, 1));
+      }
+      const rows: { id: string; businessId: string; name: string; active: number }[] = await db
+        .select({
+          id: locations.id,
+          businessId: locations.businessId,
+          name: locations.name,
+          active: locations.active,
+        })
+        .from(locations)
+        .where(and(...conditions))
+        .orderBy(asc(locations.name));
       return rows.map((r) => ({ ...r, active: r.active === 1 }));
     },
 
@@ -30,11 +30,13 @@ export function createLocationRepository(db: Db) {
     ): Promise<Location> {
       const id = newId();
       const now = new Date().toISOString();
-      await db.run(
-        `INSERT INTO locations (id, business_id, name, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?)`,
-        [id, businessId, input.name, now, now],
-      );
+      await db.insert(locations).values({
+        id,
+        businessId,
+        name: input.name,
+        createdAt: now,
+        updatedAt: now,
+      });
       return { id, businessId, name: input.name, active: true };
     },
 
@@ -43,21 +45,17 @@ export function createLocationRepository(db: Db) {
       id: string,
       input: { name?: string; active?: boolean },
     ): Promise<Location | null> {
-      const sets: string[] = ["updated_at = ?"];
-      const params: (string | number)[] = [new Date().toISOString()];
-      if (input.name !== undefined) {
-        sets.push("name = ?");
-        params.push(input.name);
-      }
-      if (input.active !== undefined) {
-        sets.push("active = ?");
-        params.push(input.active ? 1 : 0);
-      }
-      params.push(businessId, id);
-      await db.run(
-        `UPDATE locations SET ${sets.join(", ")} WHERE business_id = ? AND id = ?`,
-        params,
-      );
+      const updateData: Record<string, unknown> = {
+        updatedAt: new Date().toISOString(),
+      };
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.active !== undefined) updateData.active = input.active ? 1 : 0;
+
+      await db
+        .update(locations)
+        .set(updateData)
+        .where(and(eq(locations.businessId, businessId), eq(locations.id, id)));
+
       return this.list(businessId, true).then(
         (rows) => rows.find((l) => l.id === id) ?? null,
       );

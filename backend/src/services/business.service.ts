@@ -1,4 +1,4 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import type { Business } from "../domain/types";
 import {
   createBusinessRepository,
@@ -6,7 +6,7 @@ import {
 } from "../repositories/business.repository";
 import { ApiError } from "../utils/http-error";
 
-export function createBusinessService(deps: { db: Db; getBusinessId: () => Promise<string> }) {
+export function createBusinessService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
   const businessRepo = createBusinessRepository(db);
 
