@@ -19,6 +19,25 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Alertas por email (Cloudflare Email Sending).
+  // ALERT_FROM_EMAIL debe ser una dirección del dominio verificado
+  // (p. ej. alertas@nalu.example) y el negocio debe tener alert_email.
+  "send_email": [
+    {
+      "name": "SEND_EMAIL"
+    }
+  ],
+  "vars": {
+    "ALERT_FROM_EMAIL": "alertas@nalu.example"
+  },
+  // Cron diario (13:00 UTC = 07:00 hora de Nicaragua). Comentado a propósito:
+  // la cuenta Workers Free tiene límite de 5 cron triggers y ya están usados
+  // por otros proyectos. El handler `scheduled` de src/worker.ts ya está
+  // listo; para activarlo, descomenta esto y despliega (o agrégalo en el
+  // dashboard), cuando el plan lo permita. Ver docs/DEPLOYMENT.md.
+  // "triggers": {
+  //   "crons": ["0 13 * * *"]
+  // },
   "observability": {
     "enabled": true
   }
