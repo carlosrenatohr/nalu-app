@@ -37,6 +37,10 @@ backups/
 .idea/
 .DS_Store
 
+# Codebase memory / graphify
+.codebase-memory/
+graphify-out/
+
 # Logs
 *.log
 npm-debug.log*
