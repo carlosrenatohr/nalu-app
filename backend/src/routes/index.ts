@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import { createServices } from "../services";
 import { createHealthController } from "../controllers/health.controller";
 import { createFlavorControllers } from "../controllers/flavor.controller";
@@ -24,7 +24,7 @@ import { syncRequestSchema } from "../schemas/sync";
 import { loginSchema, changePinSchema } from "../schemas/auth";
 
 export function createApiRouter(deps: {
-  db: Db;
+  db: DrizzleDb;
   getBusinessId: () => Promise<string>;
 }): Router {
   const services = createServices(deps);

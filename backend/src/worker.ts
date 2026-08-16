@@ -1,7 +1,7 @@
 import { httpServerHandler } from "cloudflare:node";
 import { env } from "cloudflare:workers";
 import { createApp } from "./app";
-import { D1DbAdapter } from "./db/d1-adapter";
+import { createDrizzleD1 } from "./db/drizzle-d1";
 import { resolveBusinessId } from "./config/bootstrap";
 import { createServices } from "./services";
 import { runDailyAlerts, type EmailSender } from "./services/alerts.service";
@@ -18,7 +18,7 @@ import { addDays, todayISO } from "./utils/dates";
 // negocio se resuelve de forma perezosa dentro del primer request y
 // se cachea. Crear los objetos de servicios NO hace I/O: es seguro.
 // ---------------------------------------------------------------------
-const db = new D1DbAdapter(env.DB);
+const db = createDrizzleD1(env.DB);
 
 let cachedBusinessId: string | null = null;
 async function getBusinessId(): Promise<string> {

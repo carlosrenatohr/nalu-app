@@ -1,4 +1,4 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import type { Supplier } from "../domain/types";
 import { createSupplierRepository } from "../repositories/supplier.repository";
 import { ApiError } from "../utils/http-error";
@@ -11,7 +11,7 @@ export interface CreateSupplierInput {
   notes?: string;
 }
 
-export function createSupplierService(deps: { db: Db; getBusinessId: () => Promise<string> }) {
+export function createSupplierService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
   const supplierRepo = createSupplierRepository(db);
 

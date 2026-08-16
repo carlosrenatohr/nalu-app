@@ -1,4 +1,4 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import type { Flavor } from "../domain/types";
 import { createFlavorRepository, type NewFlavor } from "../repositories/flavor.repository";
 import { ApiError } from "../utils/http-error";
@@ -13,7 +13,7 @@ export interface CreateFlavorInput {
   minStock?: number;
 }
 
-export function createFlavorService(deps: { db: Db; getBusinessId: () => Promise<string> }) {
+export function createFlavorService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
   const flavorRepo = createFlavorRepository(db);
 

@@ -1,4 +1,4 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import { createAuthService } from "./auth.service";
 import { createBusinessService } from "./business.service";
 import { createFlavorService } from "./flavor.service";
@@ -10,7 +10,7 @@ import { createSaleService } from "./sale.service";
 import { createSupplierService } from "./supplier.service";
 import { createSyncService } from "./sync.service";
 
-export function createServices(deps: { db: Db; getBusinessId: () => Promise<string> }) {
+export function createServices(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
 
   const auth = createAuthService({ db, getBusinessId });

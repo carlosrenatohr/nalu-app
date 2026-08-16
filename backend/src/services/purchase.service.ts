@@ -1,8 +1,8 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
+import { purchases, purchaseItems, inventoryMovements } from "../db/schema";
 import { calculateLineSubtotal, calculateSaleCost } from "../domain/calculations/sales";
 import type { Purchase, PurchaseItem } from "../domain/types";
 import { createFlavorRepository } from "../repositories/flavor.repository";
-import { createMovementRepository } from "../repositories/movement.repository";
 import { createPurchaseRepository } from "../repositories/purchase.repository";
 import { createSupplierRepository } from "../repositories/supplier.repository";
 import { ApiError } from "../utils/http-error";
@@ -16,10 +16,9 @@ export interface CreatePurchaseInput {
   items: { flavorId: string; quantity: number; unitCost: number }[];
 }
 
-export function createPurchaseService(deps: { db: Db; getBusinessId: () => Promise<string> }) {
+export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
   const purchaseRepo = createPurchaseRepository(db);
-  const movementRepo = createMovementRepository(db);
   const flavorRepo = createFlavorRepository(db);
   const supplierRepo = createSupplierRepository(db);
 
@@ -72,7 +71,7 @@ export function createPurchaseService(deps: { db: Db; getBusinessId: () => Promi
     };
 
     // 4. Creación atómica: compra + ítems + movimientos de entrada
-    const movements = items.map((it) => ({
+    const movements: NewMovement[] = items.map((it) => ({
       id: newId(),
       businessId,
       flavorId: it.flavorId,
@@ -83,10 +82,46 @@ export function createPurchaseService(deps: { db: Db; getBusinessId: () => Promi
       date: input.purchaseDate,
       notes: null,
     }));
-    await db.batch([
-      ...purchaseRepo.buildCreateStatements(purchase, items),
-      ...movementRepo.buildCreateStatements(movements),
-    ]);
+    await db.transaction(async (tx: DrizzleDb) => {
+      await tx.insert(purchases).values({
+        id: purchase.id,
+        businessId: purchase.businessId,
+        supplierId: purchase.supplierId,
+        purchaseDate: purchase.purchaseDate,
+        notes: purchase.notes,
+        totalCost: purchase.totalCost,
+        createdAt: purchase.createdAt,
+        updatedAt: purchase.updatedAt,
+      });
+      if (items.length > 0) {
+        await tx.insert(purchaseItems).values(
+          items.map((it) => ({
+            id: it.id,
+            purchaseId: it.purchaseId,
+            flavorId: it.flavorId,
+            quantity: it.quantity,
+            unitCost: it.unitCost,
+            subtotal: it.subtotal,
+          })),
+        );
+      }
+      if (movements.length > 0) {
+        await tx.insert(inventoryMovements).values(
+          movements.map((m) => ({
+            id: m.id,
+            businessId: m.businessId,
+            flavorId: m.flavorId,
+            movementType: m.movementType,
+            quantity: m.quantity,
+            unitCost: m.unitCost,
+            referenceId: m.referenceId,
+            date: m.date,
+            notes: m.notes,
+            createdAt: new Date().toISOString(),
+          })),
+        );
+      }
+    });
     return purchase;
   }
 

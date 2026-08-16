@@ -1,14 +1,14 @@
 import express, { type Express } from "express";
 import helmet from "helmet";
 import cors from "cors";
-import type { Db } from "./db/types";
+import type { DrizzleDb } from "./db/drizzle-types";
 import { createApiRouter } from "./routes";
 import { requestLogger } from "./middleware/logger";
 import { notFoundHandler } from "./middleware/not-found";
 import { errorHandler } from "./middleware/error-handler";
 
 export interface AppDeps {
-  db: Db;
+  db: DrizzleDb;
   /**
    * Resuelve (de forma perezosa y cacheable) el id del negocio.
    * En Workers NO se puede hacer I/O asíncrono en el scope global del
