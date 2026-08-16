@@ -71,7 +71,7 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
     };
 
     // 4. Creación atómica: compra + ítems + movimientos de entrada
-    const movements: NewMovement[] = items.map((it) => ({
+    const movements = items.map((it) => ({
       id: newId(),
       businessId,
       flavorId: it.flavorId,
