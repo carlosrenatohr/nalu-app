@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF6F91"/>
+      <stop offset="55%" stop-color="#FF9F43"/>
+      <stop offset="100%" stop-color="#FFD95A"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFF9EF"/>
+      <stop offset="100%" stop-color="#D9F4C7"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- paleta -->
+  <rect x="136" y="96" width="240" height="280" rx="60" fill="url(#body)"/>
+  <!-- palito -->
+  <rect x="232" y="376" width="48" height="96" rx="24" fill="#C8956C"/>
+  <rect x="232" y="376" width="48" height="40" rx="20" fill="#B5825B"/>
+  <!-- brillo -->
+  <ellipse cx="180" cy="150" rx="28" ry="52" fill="#FFFFFF" opacity="0.45"/>
+  <!-- chispitas -->
+  <circle cx="340" cy="150" r="12" fill="#FFD95A"/>
+  <circle cx="360" cy="220" r="8" fill="#FF6F91"/>
+  <circle cx="150" cy="330" r="9" fill="#8BCF5B"/>
+</svg>

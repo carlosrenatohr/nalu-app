@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* =====================================================================
+   NALU — Sistema de diseño (tokens centralizados)
+   Nunca dispersar colores crudos en los componentes: usar estas
+   variables o las utilidades de Tailwind que generan.
+   ===================================================================== */
+@theme {
+  /* Turquesa (acciones primarias / navegación) */
+  --color-turquoise: #36c9c6;
+  --color-turquoise-deep: #159e9b;
+
+  /* Fresa (acentos positivos) */
+  --color-strawberry: #ff6f91;
+  --color-strawberry-soft: #ffd1dc;
+
+  /* Mango (resaltados) */
+  --color-mango: #ffd95a;
+  --color-mango-soft: #fff1b8;
+  --color-orange: #ff9f43;
+  --color-orange-soft: #ffd6a5;
+
+  /* Kiwi (inventario/disponibilidad) */
+  --color-kiwi: #8bcf5b;
+  --color-mint: #d9f4c7;
+
+  /* Uva (reportes/analítica) */
+  --color-grape: #9b7ede;
+  --color-lavender: #e7dfff;
+
+  /* Neutros */
+  --color-cream: #fff9ef;
+  --color-cocoa: #4b3832;
+  --color-cocoa-soft: #75645e;
+
+  --radius-card: 1.25rem;
+  --radius-pill: 9999px;
+
+  --shadow-soft: 0 4px 20px -6px rgb(75 56 50 / 0.12);
+  --shadow-card: 0 8px 30px -8px rgb(75 56 50 / 0.16);
+  --shadow-pop: 0 12px 40px -8px rgb(21 158 155 / 0.35);
+
+  --font-sans: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, sans-serif;
+
+  --animate-pop: pop 0.25s ease-out;
+  --animate-fade-up: fade-up 0.3s ease-out;
+
+  @keyframes pop {
+    from { transform: scale(0.96); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  @keyframes fade-up {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Base
+--------------------------------------------------------------------- */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-cream text-cocoa antialiased;
+  font-family: var(--font-sans);
+}
+
+/* Toques táctiles cómodos en móvil */
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+/* Respetar preferencias de movimiento reducido */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Foco visible accesible */
+:focus-visible {
+  outline: 3px solid var(--color-turquoise);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Ocultar flechas de inputs numéricos en móvil */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Barra de scroll discreta */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(75 56 50 / 0.2);
+  border-radius: 8px;
+}
+
+/* ---------------------------------------------------------------------
+   Utilidades de marca
+--------------------------------------------------------------------- */
+@utility text-balance {
+  text-wrap: balance;
+}
+
+/* Fondo decorativo suave del app shell */
+.app-backdrop {
+  background:
+    radial-gradient(600px 300px at 100% 0%, rgb(255 217 90 / 0.18), transparent 60%),
+    radial-gradient(700px 400px at 0% 100%, rgb(54 201 198 / 0.14), transparent 60%),
+    var(--color-cream);
+}
