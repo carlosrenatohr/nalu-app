@@ -43,11 +43,32 @@ Cubre:
   - valida la ubicación antes de guardar,
   - guarda la venta con los datos correctos.
 - `frontend/src/features/inventory/InventoryPage.test.tsx` — render de tarjetas visuales y estado de stock bajo.
+- `frontend/src/lib/formatting/currency.test.ts` — formato de moneda (C$ sin espacios, locales).
+- `frontend/src/lib/offline/outbox.test.ts` — encolado, estados y límite de reintentos del outbox.
+- `frontend/src/services/api/inventory-cache.test.ts` — **regresión**: el caché de IndexedDB persiste la clave `flavorId` derivada de `flavor.id` (la tabla Dexie la usa como clave; sin normalizar, `bulkPut` falla y la UI muestra error aunque la red funcione).
+
+### 4. E2E (navegador real) — Playwright
+
+`e2e/tests/smoke.spec.ts` con **Playwright + Chromium** cubre el flujo crítico de punta a punta:
+
+- Health de la API.
+- Dashboard: estadísticas del día y acciones principales.
+- **Venta rápida completa:** ubicación → sumar sabores → confirmar → la venta aparece en el listado.
+- Inventario: sabores con su disponibilidad.
+
+Playwright arranca solo ambos servidores (`e2e/playwright.config.ts`): API en `:3002` y Vite en `:5173` con proxy `/api`.
+
+> ⚠️ **Base e2e**: se limpia con `rm -f data/e2e.db*` **dentro del comando del webServer** (antes de abrirla). No usar `globalSetup` para borrarla: Playwright arranca los servidores **antes** de `globalSetup`, y borrar el archivo con el servidor abierto deja la conexión en un inode desvinculado donde las escrituras fallan con `SQLITE_READONLY`.
+
+```bash
+pnpm test:e2e                  # requiere `pnpm exec playwright install chromium` una vez
+```
 
 ## Cómo ejecutar
 
 ```bash
-pnpm test                     # todo
+pnpm test                     # unitarios (backend + frontend)
+pnpm test:e2e                 # e2e (Playwright)
 pnpm --filter @nalu/backend test            # dominio + API
 pnpm --filter @nalu/frontend test           # componentes
 pnpm --filter @nalu/backend test:watch      # modo watch
@@ -57,6 +78,7 @@ pnpm --filter @nalu/backend test:watch      # modo watch
 
 - **Backend:** Vitest, entorno `node`, base en memoria (`createMemoryDb`) con seed.
 - **Frontend:** Vitest, entorno `jsdom`, `@testing-library/jest-dom`, `fake-indexeddb` (IndexedDB en jsdom), cleanup automático entre tests.
+- **E2E:** Playwright, `workers: 1` (los flujos escriben en la misma BD), base limpia por ejecución.
 
 ## Principios
 

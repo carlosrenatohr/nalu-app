@@ -131,7 +131,7 @@ El despliegue en producción se documenta en [docs/DEPLOYMENT.md](docs/DEPLOYMEN
 
 ## 🧪 Calidad
 
-- ✅ **42+ tests**: dominio (16), API (20), componentes (6) + e2e (Playwright).
+- ✅ **68 tests unitarios + 4 e2e**: dominio (16), casos límite de dominio (8), API (20), frontend (24: componentes, formato, outbox, caché de inventario) + smoke e2e (Playwright).
 - ✅ TypeScript **estricto** en ambos paquetes.
 - ✅ ESLint en cero errores.
 - ✅ Build de producción verificado.
