@@ -7,6 +7,8 @@ on:
 
 # Solo despliega si hay credenciales de Cloudflare configuradas en los
 # secretos del repositorio (CLOUDFLARE_API_TOKEN y CLOUDFLARE_ACCOUNT_ID).
+# Nota: los `secrets` no se pueden referenciar en `if:`; se exponen como
+# variables de entorno del job y se comparan con `env.*` en cada step.
 jobs:
   quality:
     name: Calidad
@@ -30,8 +32,9 @@ jobs:
     name: Desplegar a Cloudflare Workers
     needs: quality
     runs-on: ubuntu-latest
-    # Condicional: solo si las credenciales de producción están configuradas
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -43,22 +46,24 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # Si no hay credenciales, avisamos y el resto de steps se omite.
+      - name: Sin credenciales de Cloudflare
+        if: ${{ env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' }}
+        run: echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID no configurados — se omite el despliegue"
+
       # Aplica las migraciones a la base D1 de producción
       - name: Aplicar migraciones D1 (producción)
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         working-directory: backend
         run: pnpm exec wrangler d1 migrations apply nalu-db --remote
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       # Construye el frontend y despliega API + estáticos en un solo Worker
       - name: Construir frontend
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         working-directory: frontend
         run: pnpm run build
 
       - name: Desplegar Worker
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
         working-directory: backend
         run: pnpm exec wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
