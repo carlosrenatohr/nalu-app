@@ -104,9 +104,8 @@ function wrapNodeSqlite(conn: DatabaseSync) {
   };
 }
 
-export function createDrizzleSqlite(conn: DatabaseSync) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createDrizzleSqlite(conn: DatabaseSync): any {
   const wrapped = wrapNodeSqlite(conn) as any;
   return drizzle(wrapped, { schema });
 }
-
-export type DrizzleSqlite = ReturnType<typeof createDrizzleSqlite>;
