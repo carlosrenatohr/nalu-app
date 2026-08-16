@@ -46,24 +46,32 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # Si no hay credenciales, avisamos y el resto de steps se omite.
-      - name: Sin credenciales de Cloudflare
-        if: ${{ env.CLOUDFLARE_API_TOKEN == '' || env.CLOUDFLARE_ACCOUNT_ID == '' }}
-        run: echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID no configurados — se omite el despliegue"
+      # Chequeo centralizado de credenciales — expone output `has_cf_creds`
+      - name: Verificar credenciales de Cloudflare
+        id: cf-check
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "has_cf_creds=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_cf_creds=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID no configurados — se omite el despliegue"
+          fi
 
       # Aplica las migraciones a la base D1 de producción
       - name: Aplicar migraciones D1 (producción)
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        if: steps.cf-check.outputs.has_cf_creds == 'true'
         working-directory: backend
         run: pnpm exec wrangler d1 migrations apply nalu-db --remote
 
-      # Construye el frontend y despliega API + estáticos en un solo Worker
+      # Construye el frontend (el backend ya se construyó en el job quality,
+      # pero el frontend/dist se limpia entre jobs; se reconstruye aquí)
       - name: Construir frontend
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        if: steps.cf-check.outputs.has_cf_creds == 'true'
         working-directory: frontend
         run: pnpm run build
 
+      # Despliega API + estáticos en un solo Worker
       - name: Desplegar Worker
-        if: ${{ env.CLOUDFLARE_API_TOKEN != '' && env.CLOUDFLARE_ACCOUNT_ID != '' }}
+        if: steps.cf-check.outputs.has_cf_creds == 'true'
         working-directory: backend
         run: pnpm exec wrangler deploy
