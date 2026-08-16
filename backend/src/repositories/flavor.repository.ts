@@ -1,13 +1,7 @@
-import type { BatchStatement, Db, SqlValue } from "../db/types";
+import { eq, and, asc, inArray } from "drizzle-orm";
+import type { DrizzleDb } from "../db/drizzle-types";
+import { flavors } from "../db/schema";
 import type { Flavor } from "../domain/types";
-
-const FLAVOR_SELECT = `
-  SELECT
-    id, business_id AS businessId, name, slug, emoji, color,
-    min_stock AS minStock, active,
-    created_at AS createdAt, updated_at AS updatedAt
-  FROM flavors
-`;
 
 interface FlavorRow {
   id: string;
@@ -36,66 +30,60 @@ export interface NewFlavor {
   minStock: number;
 }
 
-export function createFlavorRepository(db: Db) {
+export function createFlavorRepository(db: DrizzleDb) {
   return {
-    buildCreateStatements(flavor: NewFlavor): BatchStatement[] {
-      const now = new Date().toISOString();
-      return [
-        {
-          sql: `INSERT INTO flavors
-            (id, business_id, name, slug, emoji, color, min_stock, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          params: [
-            flavor.id,
-            flavor.businessId,
-            flavor.name,
-            flavor.slug,
-            flavor.emoji,
-            flavor.color,
-            flavor.minStock,
-            now,
-            now,
-          ],
-        },
-      ];
-    },
-
     async create(flavor: NewFlavor): Promise<Flavor> {
-      await db.run(this.buildCreateStatements(flavor)[0]!.sql, this.buildCreateStatements(flavor)[0]!.params);
+      const now = new Date().toISOString();
+      await db.insert(flavors).values({
+        id: flavor.id,
+        businessId: flavor.businessId,
+        name: flavor.name,
+        slug: flavor.slug,
+        emoji: flavor.emoji,
+        color: flavor.color,
+        minStock: flavor.minStock,
+        createdAt: now,
+        updatedAt: now,
+      });
       return mapFlavor({
         ...flavor,
         active: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       });
     },
 
     async list(businessId: string, includeInactive = false): Promise<Flavor[]> {
-      const rows = await db.all<FlavorRow>(
-        `${FLAVOR_SELECT}
-         WHERE business_id = ? ${includeInactive ? "" : "AND active = 1"}
-         ORDER BY name`,
-        [businessId],
-      );
+      const conditions = [eq(flavors.businessId, businessId)];
+      if (!includeInactive) {
+        conditions.push(eq(flavors.active, 1));
+      }
+      const rows: FlavorRow[] = await db
+        .select()
+        .from(flavors)
+        .where(and(...conditions))
+        .orderBy(asc(flavors.name));
       return rows.map(mapFlavor);
     },
 
     async getById(businessId: string, id: string): Promise<Flavor | null> {
-      const row = await db.first<FlavorRow>(
-        `${FLAVOR_SELECT} WHERE business_id = ? AND id = ?`,
-        [businessId, id],
-      );
+      const rows: FlavorRow[] = await db
+        .select()
+        .from(flavors)
+        .where(and(eq(flavors.businessId, businessId), eq(flavors.id, id)));
+      const row = rows[0] ?? null;
       return row ? mapFlavor(row) : null;
     },
 
     /** Valida que todos los ids existan; devuelve los sabores encontrados. */
     async getByIds(businessId: string, ids: string[]): Promise<Flavor[]> {
       if (ids.length === 0) return [];
-      const placeholders = ids.map(() => "?").join(", ");
-      const rows = await db.all<FlavorRow>(
-        `${FLAVOR_SELECT} WHERE business_id = ? AND id IN (${placeholders})`,
-        [businessId, ...ids],
-      );
+      const rows: FlavorRow[] = await db
+        .select()
+        .from(flavors)
+        .where(
+          and(eq(flavors.businessId, businessId), inArray(flavors.id, ids)),
+        );
       return rows.map(mapFlavor);
     },
 
@@ -104,28 +92,21 @@ export function createFlavorRepository(db: Db) {
       id: string,
       input: Partial<Pick<Flavor, "name" | "slug" | "emoji" | "color" | "minStock" | "active">>,
     ): Promise<Flavor | null> {
-      const sets: string[] = ["updated_at = ?"];
-      const params: SqlValue[] = [new Date().toISOString()];
-      const columnMap: Record<string, string> = {
-        name: "name",
-        slug: "slug",
-        emoji: "emoji",
-        color: "color",
-        minStock: "min_stock",
-        active: "active",
+      const updateData: Record<string, unknown> = {
+        updatedAt: new Date().toISOString(),
       };
-      for (const [key, value] of Object.entries(input)) {
-        if (value === undefined) continue;
-        const column = columnMap[key];
-        if (!column) continue;
-        sets.push(`${column} = ?`);
-        params.push(typeof value === "boolean" ? (value ? 1 : 0) : (value as SqlValue));
-      }
-      params.push(businessId, id);
-      await db.run(
-        `UPDATE flavors SET ${sets.join(", ")} WHERE business_id = ? AND id = ?`,
-        params,
-      );
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.slug !== undefined) updateData.slug = input.slug;
+      if (input.emoji !== undefined) updateData.emoji = input.emoji;
+      if (input.color !== undefined) updateData.color = input.color;
+      if (input.minStock !== undefined) updateData.minStock = input.minStock;
+      if (input.active !== undefined) updateData.active = input.active ? 1 : 0;
+
+      await db
+        .update(flavors)
+        .set(updateData)
+        .where(and(eq(flavors.businessId, businessId), eq(flavors.id, id)));
+
       return this.getById(businessId, id);
     },
   };

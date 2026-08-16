@@ -1,12 +1,7 @@
-import type { BatchStatement, Db, SqlValue } from "../db/types";
+import { eq, and, asc } from "drizzle-orm";
+import type { DrizzleDb } from "../db/drizzle-types";
+import { suppliers } from "../db/schema";
 import type { Supplier } from "../domain/types";
-
-const SUPPLIER_SELECT = `
-  SELECT
-    id, business_id AS businessId, name, contact, notes, active,
-    created_at AS createdAt, updated_at AS updatedAt
-  FROM suppliers
-`;
 
 interface SupplierRow {
   id: string;
@@ -31,54 +26,46 @@ export interface NewSupplier {
   notes: string | null;
 }
 
-export function createSupplierRepository(db: Db) {
+export function createSupplierRepository(db: DrizzleDb) {
   return {
-    buildCreateStatements(supplier: NewSupplier): BatchStatement[] {
-      const now = new Date().toISOString();
-      return [
-        {
-          sql: `INSERT INTO suppliers
-            (id, business_id, name, contact, notes, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          params: [
-            supplier.id,
-            supplier.businessId,
-            supplier.name,
-            supplier.contact,
-            supplier.notes,
-            now,
-            now,
-          ],
-        },
-      ];
-    },
-
     async create(supplier: NewSupplier): Promise<Supplier> {
-      const st = this.buildCreateStatements(supplier)[0]!;
-      await db.run(st.sql, st.params);
+      const now = new Date().toISOString();
+      await db.insert(suppliers).values({
+        id: supplier.id,
+        businessId: supplier.businessId,
+        name: supplier.name,
+        contact: supplier.contact,
+        notes: supplier.notes,
+        createdAt: now,
+        updatedAt: now,
+      });
       return mapSupplier({
         ...supplier,
         active: 1,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       });
     },
 
     async list(businessId: string, includeInactive = false): Promise<Supplier[]> {
-      const rows = await db.all<SupplierRow>(
-        `${SUPPLIER_SELECT}
-         WHERE business_id = ? ${includeInactive ? "" : "AND active = 1"}
-         ORDER BY name`,
-        [businessId],
-      );
+      const conditions = [eq(suppliers.businessId, businessId)];
+      if (!includeInactive) {
+        conditions.push(eq(suppliers.active, 1));
+      }
+      const rows: SupplierRow[] = await db
+        .select()
+        .from(suppliers)
+        .where(and(...conditions))
+        .orderBy(asc(suppliers.name));
       return rows.map(mapSupplier);
     },
 
     async getById(businessId: string, id: string): Promise<Supplier | null> {
-      const row = await db.first<SupplierRow>(
-        `${SUPPLIER_SELECT} WHERE business_id = ? AND id = ?`,
-        [businessId, id],
-      );
+      const row = await db
+        .select()
+        .from(suppliers)
+        .where(and(eq(suppliers.businessId, businessId), eq(suppliers.id, id)))
+        .then((rows: SupplierRow[]) => rows[0] ?? null);
       return row ? mapSupplier(row) : null;
     },
 
@@ -87,18 +74,19 @@ export function createSupplierRepository(db: Db) {
       id: string,
       input: Partial<Pick<Supplier, "name" | "contact" | "notes" | "active">>,
     ): Promise<Supplier | null> {
-      const sets: string[] = ["updated_at = ?"];
-      const params: SqlValue[] = [new Date().toISOString()];
-      for (const [key, value] of Object.entries(input)) {
-        if (value === undefined) continue;
-        sets.push(`${key} = ?`);
-        params.push(typeof value === "boolean" ? (value ? 1 : 0) : (value as SqlValue));
-      }
-      params.push(businessId, id);
-      await db.run(
-        `UPDATE suppliers SET ${sets.join(", ")} WHERE business_id = ? AND id = ?`,
-        params,
-      );
+      const updateData: Record<string, unknown> = {
+        updatedAt: new Date().toISOString(),
+      };
+      if (input.name !== undefined) updateData.name = input.name;
+      if (input.contact !== undefined) updateData.contact = input.contact;
+      if (input.notes !== undefined) updateData.notes = input.notes;
+      if (input.active !== undefined) updateData.active = input.active ? 1 : 0;
+
+      await db
+        .update(suppliers)
+        .set(updateData)
+        .where(and(eq(suppliers.businessId, businessId), eq(suppliers.id, id)));
+
       return this.getById(businessId, id);
     },
   };
