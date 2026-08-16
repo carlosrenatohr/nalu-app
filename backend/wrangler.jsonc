@@ -1,0 +1,25 @@
+// Configuración de Wrangler para desplegar Nalu API en Cloudflare Workers.
+// Nota: database_id debe reemplazarse con el ID real de la base D1 (ver docs/DEPLOYMENT.md).
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nalu-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // El mismo Worker sirve la API (Express) y el frontend construido (Vite).
+  "assets": {
+    "directory": "../frontend/dist",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nalu-db",
+      "database_id": "9c980fbc-2418-449f-9980-8eed9c139d26",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
