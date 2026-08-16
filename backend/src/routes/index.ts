@@ -10,6 +10,8 @@ import { createInventoryControllers } from "../controllers/inventory.controller"
 import { createReportControllers } from "../controllers/report.controller";
 import { createBusinessControllers } from "../controllers/business.controller";
 import { createSyncControllers } from "../controllers/sync.controller";
+import { createAuthControllers } from "../controllers/auth.controller";
+import { requireAuth } from "../middleware/auth";
 import { validate, validateQuery } from "../middleware/validate";
 import { createSaleSchema, saleListQuerySchema } from "../schemas/sale";
 import { createPurchaseSchema, purchaseListQuerySchema } from "../schemas/purchase";
@@ -19,6 +21,7 @@ import { createSupplierSchema, updateSupplierSchema } from "../schemas/supplier"
 import { updateBusinessSchema, createLocationSchema, updateLocationSchema } from "../schemas/business";
 import { dateRangeQuerySchema } from "../schemas/reports";
 import { syncRequestSchema } from "../schemas/sync";
+import { loginSchema, changePinSchema } from "../schemas/auth";
 
 export function createApiRouter(deps: {
   db: Db;
@@ -27,9 +30,18 @@ export function createApiRouter(deps: {
   const services = createServices(deps);
   const router = Router();
 
-  // Salud
+  // Salud y autenticación: rutas PÚBLICAS (antes del middleware requireAuth)
   const health = createHealthController(services);
   router.get("/health", health.check);
+
+  const auth = createAuthControllers(services);
+  router.post("/auth/login", validate(loginSchema), auth.login);
+  router.post("/auth/logout", auth.logout);
+  router.get("/auth/me", auth.me);
+  router.post("/auth/change-pin", validate(changePinSchema), auth.changePin);
+
+  // Todo lo demás exige sesión válida (Bearer token de larga duración)
+  router.use(requireAuth(services.auth));
 
   // Sabores
   const flavors = createFlavorControllers(services);

@@ -23,6 +23,8 @@ export interface Business {
   secondaryColor: string;
   contact: string | null;
   reportFooter: string | null;
+  /** Email para alertas (stock bajo, resumen diario). Nunca el PIN. */
+  alertEmail: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -7,8 +7,9 @@
 -- ---------------------------------------------------------------------
 -- Negocio
 -- ---------------------------------------------------------------------
-INSERT OR IGNORE INTO businesses (id, name, currency, default_purchase_cost, default_home_price, contact, report_footer)
-VALUES ('10000000-0000-4000-8000-000000000001', 'Nalu', 'NIO', 28, 60, 'Hola Nalu', '¡Gracias por tu compra!');
+-- PIN por defecto "1234" (hash de nalu-default:1234). Cambiarlo en Ajustes.
+INSERT OR IGNORE INTO businesses (id, name, currency, default_purchase_cost, default_home_price, contact, report_footer, pin_hash, pin_salt, alert_email)
+VALUES ('10000000-0000-4000-8000-000000000001', 'Nalu', 'NIO', 28, 60, 'Hola Nalu', '¡Gracias por tu compra!', '15c7d5e123707cd41495ca8520e5d6cae39cc40885cfaa0bea9d5c9beda2896f', 'nalu-default', NULL);
 
 -- ---------------------------------------------------------------------
 -- Sabores

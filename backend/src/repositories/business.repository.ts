@@ -10,6 +10,7 @@ const BUSINESS_SELECT = `
     secondary_color AS secondaryColor,
     contact,
     report_footer AS reportFooter,
+    alert_email AS alertEmail,
     created_at AS createdAt,
     updated_at AS updatedAt
   FROM businesses
@@ -26,6 +27,7 @@ export type BusinessUpdate = Partial<
     | "secondaryColor"
     | "contact"
     | "reportFooter"
+    | "alertEmail"
   >
 >;
 
@@ -39,6 +41,7 @@ const COLUMN_MAP: Record<keyof BusinessUpdate, string> = {
   secondaryColor: "secondary_color",
   contact: "contact",
   reportFooter: "report_footer",
+  alertEmail: "alert_email",
 };
 
 export function createBusinessRepository(db: Db) {

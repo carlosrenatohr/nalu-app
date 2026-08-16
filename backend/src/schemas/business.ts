@@ -11,6 +11,7 @@ export const updateBusinessSchema = z.object({
   secondaryColor: hexColorSchema.optional(),
   contact: z.string().trim().max(200).nullable().optional(),
   reportFooter: z.string().trim().max(200).nullable().optional(),
+  alertEmail: z.string().trim().email("Escribe un email válido.").max(200).nullable().optional(),
 });
 
 export const createLocationSchema = z.object({

@@ -22,24 +22,43 @@ const FLAVORS = {
 
 const SUPPLIER_TROPICAL = "30000000-0000-4000-8000-000000000001";
 
+const DEFAULT_PIN = "1234";
+
 let app: Express;
+let token = "";
+
+/** Inicia sesión contra la app (PIN de la semilla) y guarda el token. */
+async function login(): Promise<string> {
+  // Ruta pública: se llama sin token (aún no existe).
+  const publicRequest = request(app);
+  const res = await publicRequest.post("/api/auth/login").send({ pin: DEFAULT_PIN });
+  expect(res.status).toBe(200);
+  return res.body.data.token as string;
+}
+
+/** Helper que añade el token Bearer a cada petición autenticada. */
+function api(verb: "get" | "post" | "patch", url: string) {
+  const req = request(app)[verb](url);
+  return token ? req.set("Authorization", `Bearer ${token}`) : req;
+}
 
 beforeEach(async () => {
   const { db } = createMemoryDb(true);
   const businessId = await resolveBusinessId(db);
   app = createApp({ db, getBusinessId: async () => businessId });
+  token = await login();
 });
 
 describe("Salud y errores", () => {
   it("GET /api/health responde ok", async () => {
-    const res = await request(app).get("/api/health");
+    const res = await api("get", "/api/health");
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.status).toBe("ok");
   });
 
   it("devuelve el contrato de error estructurado en español", async () => {
-    const res = await request(app).post("/api/sales").send({ items: [] });
+    const res = await api("post", "/api/sales").send({ items: [] });
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
@@ -47,15 +66,59 @@ describe("Salud y errores", () => {
   });
 
   it("404 para rutas inexistentes", async () => {
-    const res = await request(app).get("/api/no-existe");
+    const res = await api("get", "/api/no-existe");
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("NOT_FOUND");
   });
 });
 
+describe("Autenticación (PIN + sesión larga)", () => {
+  it("rechaza un PIN incorrecto", async () => {
+    const res = await request(app).post("/api/auth/login").send({ pin: "9999" });
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("rechaza rutas protegidas sin token", async () => {
+    const res = await request(app).get("/api/inventory");
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("valida la sesión con /auth/me", async () => {
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.name).toBe("Nalu");
+  });
+
+  it("invalida la sesión al cerrar sesión", async () => {
+    await request(app)
+      .post("/api/auth/logout")
+      .set("Authorization", `Bearer ${token}`);
+    const res = await request(app)
+      .get("/api/auth/me")
+      .set("Authorization", `Bearer ${token}`);
+    expect(res.status).toBe(401);
+  });
+
+  it("cambia el PIN y el anterior deja de funcionar", async () => {
+    const change = await request(app)
+      .post("/api/auth/change-pin")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ currentPin: "1234", newPin: "5678" });
+    expect(change.status).toBe(200);
+
+    // El PIN nuevo funciona y el viejo ya no
+    expect((await request(app).post("/api/auth/login").send({ pin: "5678" })).status).toBe(200);
+    expect((await request(app).post("/api/auth/login").send({ pin: "1234" })).status).toBe(401);
+  });
+});
+
 describe("Sabores", () => {
   it("lista los sabores semilla", async () => {
-    const res = await request(app).get("/api/flavors");
+    const res = await api("get", "/api/flavors");
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(6);
     const names = res.body.data.map((f: { name: string }) => f.name);
@@ -64,15 +127,14 @@ describe("Sabores", () => {
   });
 
   it("crea un sabor y genera su slug", async () => {
-    const res = await request(app)
-      .post("/api/flavors")
+    const res = await api("post", "/api/flavors")
       .send({ name: "Fresa Limón", emoji: "🍋", minStock: 5 });
     expect(res.status).toBe(201);
     expect(res.body.data.slug).toBe("fresa-limon");
   });
 
   it("rechaza un sabor sin nombre", async () => {
-    const res = await request(app).post("/api/flavors").send({ name: "" });
+    const res = await api("post", "/api/flavors").send({ name: "" });
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
@@ -80,7 +142,7 @@ describe("Sabores", () => {
 
 describe("Inventario", () => {
   it("calcula el inventario desde los movimientos (Coco = 4)", async () => {
-    const res = await request(app).get("/api/inventory");
+    const res = await api("get", "/api/inventory");
     expect(res.status).toBe(200);
     const coco = res.body.data.find(
       (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
@@ -93,7 +155,7 @@ describe("Inventario", () => {
   });
 
   it("detalla un sabor con su historial de movimientos", async () => {
-    const res = await request(app).get(`/api/inventory/${FLAVORS.coco}`);
+    const res = await api("get", `/api/inventory/${FLAVORS.coco}`);
     expect(res.status).toBe(200);
     expect(res.body.data.summary.flavor.name).toBe("Coco");
     expect(res.body.data.movements.length).toBeGreaterThan(3);
@@ -102,8 +164,7 @@ describe("Inventario", () => {
 
 describe("Ventas", () => {
   it("registra una venta, descuenta inventario y calcula ganancia", async () => {
-    const res = await request(app)
-      .post("/api/sales")
+    const res = await api("post", "/api/sales")
       .send({
         location: "Casa",
         items: [{ flavorId: FLAVORS.coco, quantity: 2, unitPrice: 60 }],
@@ -114,7 +175,7 @@ describe("Ventas", () => {
     expect(res.body.data.items[0].unitCostSnapshot).toBe(28);
 
     // El inventario de Coco baja de 4 a 2
-    const inv = await request(app).get("/api/inventory");
+    const inv = await api("get", "/api/inventory");
     const coco = inv.body.data.find(
       (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
     );
@@ -122,8 +183,7 @@ describe("Ventas", () => {
   });
 
   it("rechaza cantidades inválidas", async () => {
-    const res = await request(app)
-      .post("/api/sales")
+    const res = await api("post", "/api/sales")
       .send({
         location: "Casa",
         items: [{ flavorId: FLAVORS.coco, quantity: 0, unitPrice: 60 }],
@@ -134,13 +194,12 @@ describe("Ventas", () => {
 
   it("rechaza una venta sin inventario suficiente y NO altera el stock", async () => {
     // Guanábana solo tiene 1 disponible
-    const before = await request(app).get("/api/inventory");
+    const before = await api("get", "/api/inventory");
     const guanabanaBefore = before.body.data.find(
       (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.guanabana,
     );
 
-    const res = await request(app)
-      .post("/api/sales")
+    const res = await api("post", "/api/sales")
       .send({
         location: "Puesto",
         items: [{ flavorId: FLAVORS.guanabana, quantity: 10, unitPrice: 60 }],
@@ -148,7 +207,7 @@ describe("Ventas", () => {
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("INSUFFICIENT_INVENTORY");
 
-    const after = await request(app).get("/api/inventory");
+    const after = await api("get", "/api/inventory");
     const guanabanaAfter = after.body.data.find(
       (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.guanabana,
     );
@@ -156,7 +215,7 @@ describe("Ventas", () => {
   });
 
   it("consulta una venta por id", async () => {
-    const res = await request(app).get("/api/sales/60000000-0000-4000-8000-000000000001");
+    const res = await api("get", "/api/sales/60000000-0000-4000-8000-000000000001");
     expect(res.status).toBe(200);
     expect(res.body.data.items).toHaveLength(3);
     expect(res.body.data.location).toBe("Casa");
@@ -165,8 +224,7 @@ describe("Ventas", () => {
 
 describe("Compras", () => {
   it("registra una compra y aumenta el inventario", async () => {
-    const res = await request(app)
-      .post("/api/purchases")
+    const res = await api("post", "/api/purchases")
       .send({
         supplierId: SUPPLIER_TROPICAL,
         purchaseDate: new Date().toISOString().slice(0, 10),
@@ -175,7 +233,7 @@ describe("Compras", () => {
     expect(res.status).toBe(201);
     expect(res.body.data.totalCost).toBe(300);
 
-    const inv = await request(app).get("/api/inventory");
+    const inv = await api("get", "/api/inventory");
     const coco = inv.body.data.find(
       (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
     );
@@ -184,8 +242,7 @@ describe("Compras", () => {
   });
 
   it("rechaza una compra con proveedor inexistente", async () => {
-    const res = await request(app)
-      .post("/api/purchases")
+    const res = await api("post", "/api/purchases")
       .send({
         supplierId: "00000000-0000-4000-8000-000000000000",
         items: [{ flavorId: FLAVORS.coco, quantity: 1, unitCost: 28 }],
@@ -196,8 +253,7 @@ describe("Compras", () => {
 
 describe("Salidas sin venta (regalo, consumo, pérdida)", () => {
   it("registra un regalo que reduce inventario pero no genera ingresos", async () => {
-    const res = await request(app)
-      .post("/api/inventory/movements")
+    const res = await api("post", "/api/inventory/movements")
       .send({
         flavorId: FLAVORS.oreo,
         movementType: "GIFT",
@@ -207,7 +263,7 @@ describe("Salidas sin venta (regalo, consumo, pérdida)", () => {
     expect(res.status).toBe(201);
     expect(res.body.data.quantity).toBe(-2); // cantidad firmada negativa
 
-    const inv = await request(app).get("/api/inventory");
+    const inv = await api("get", "/api/inventory");
     const oreo = inv.body.data.find(
       (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.oreo,
     );
@@ -217,7 +273,7 @@ describe("Salidas sin venta (regalo, consumo, pérdida)", () => {
     const today = new Date();
     const iso = (d: Date) =>
       new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    const report = await request(app).get(
+    const report = await api("get", 
       `/api/reports/sales?from=${iso(today)}&to=${iso(today)}`,
     );
     expect(report.body.data.totalSales).toBe(540);
@@ -229,8 +285,7 @@ describe("Reportes", () => {
     const today = new Date();
     const iso = (d: Date) =>
       new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-    const res = await request(app)
-      .get(`/api/reports/sales?from=${iso(today)}&to=${iso(today)}`);
+    const res = await api("get", `/api/reports/sales?from=${iso(today)}&to=${iso(today)}`);
     expect(res.status).toBe(200);
     const data = res.body.data;
     // Seed: sal-001 (C$300) + sal-002 (C$240) hoy
@@ -247,7 +302,7 @@ describe("Reportes", () => {
   });
 
   it("reporte de compras con análisis por proveedor", async () => {
-    const res = await request(app).get("/api/reports/purchases");
+    const res = await api("get", "/api/reports/purchases");
     expect(res.status).toBe(200);
     const data = res.body.data;
     expect(data.totalPurchases).toBe(1);
@@ -256,7 +311,7 @@ describe("Reportes", () => {
   });
 
   it("reporte de inventario", async () => {
-    const res = await request(app).get("/api/reports/inventory");
+    const res = await api("get", "/api/reports/inventory");
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(6);
   });
@@ -272,20 +327,18 @@ describe("Sincronización offline (outbox)", () => {
       items: [{ flavorId: FLAVORS.nutella, quantity: 2, unitPrice: 60 }],
     };
 
-    const first = await request(app)
-      .post("/api/sync/operations")
+    const first = await api("post", "/api/sync/operations")
       .send({ operations: [{ type: "sale", payload }] });
     expect(first.status).toBe(200);
     expect(first.body.data.results[0].status).toBe("applied");
     expect(first.body.data.results[0].entityId).toBe(opId);
 
     // Reintento: debe devolver "duplicate" sin duplicar la venta
-    const second = await request(app)
-      .post("/api/sync/operations")
+    const second = await api("post", "/api/sync/operations")
       .send({ operations: [{ type: "sale", payload }] });
     expect(second.body.data.results[0].status).toBe("duplicate");
 
-    const inv = await request(app).get("/api/inventory");
+    const inv = await api("get", "/api/inventory");
     const nutella = inv.body.data.find(
       (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.nutella,
     );
@@ -293,8 +346,7 @@ describe("Sincronización offline (outbox)", () => {
   });
 
   it("reporta operaciones fallidas por inventario insuficiente", async () => {
-    const res = await request(app)
-      .post("/api/sync/operations")
+    const res = await api("post", "/api/sync/operations")
       .send({
         operations: [
           {

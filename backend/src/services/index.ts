@@ -1,4 +1,5 @@
 import type { Db } from "../db/types";
+import { createAuthService } from "./auth.service";
 import { createBusinessService } from "./business.service";
 import { createFlavorService } from "./flavor.service";
 import { createInventoryService } from "./inventory.service";
@@ -12,6 +13,7 @@ import { createSyncService } from "./sync.service";
 export function createServices(deps: { db: Db; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
 
+  const auth = createAuthService({ db, getBusinessId });
   const business = createBusinessService({ db, getBusinessId });
   const flavors = createFlavorService({ db, getBusinessId });
   const suppliers = createSupplierService({ db, getBusinessId });
@@ -33,7 +35,7 @@ export function createServices(deps: { db: Db; getBusinessId: () => Promise<stri
     applySupplier: (payload) => suppliers.create(payload as never),
   });
 
-  return { business, flavors, suppliers, locations, inventory, sales, purchases, reports, sync };
+  return { auth, business, flavors, suppliers, locations, inventory, sales, purchases, reports, sync };
 }
 
 export type Services = ReturnType<typeof createServices>;
