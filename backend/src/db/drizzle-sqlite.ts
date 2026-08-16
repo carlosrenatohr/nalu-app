@@ -23,29 +23,29 @@ function wrapNodeSqlite(conn: DatabaseSync) {
     conn.exec(`BEGIN ${b} TRANSACTION;`);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function wrapStatement(stmt: ReturnType<DatabaseSync["prepare"]>): WrappedStatement {
     const wrapped: WrappedStatement = {
-      all(...params: unknown[]) {
+      all(...params: any[]) {
         return stmt.all(...params);
       },
-      get(...params: unknown[]) {
+      get(...params: any[]) {
         return stmt.get(...params);
       },
-      run(...params: unknown[]) {
+      run(...params: any[]) {
         return stmt.run(...params);
       },
       raw() {
-        // Returns a version that returns arrays instead of objects
         return {
-          all(...params: unknown[]) {
+          all(...params: any[]) {
             const rows = stmt.all(...params) as Record<string, unknown>[];
             return rows.map((row) => Object.values(row));
           },
-          get(...params: unknown[]) {
+          get(...params: any[]) {
             const row = stmt.get(...params) as Record<string, unknown> | undefined;
             return row ? Object.values(row) : undefined;
           },
-          run(...params: unknown[]) {
+          run(...params: any[]) {
             return stmt.run(...params);
           },
           raw() {
