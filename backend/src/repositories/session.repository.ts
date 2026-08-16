@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, lte } from "drizzle-orm";
 import type { DrizzleDb } from "../db/drizzle-types";
 import { sessions } from "../db/schema";
 
@@ -19,11 +19,13 @@ export const SESSION_TTL_DAYS = 90;
 export function createSessionRepository(db: DrizzleDb) {
   return {
     async create(session: SessionRow): Promise<void> {
+      const now = new Date();
+      const expires = new Date(now.getTime() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
       await db.insert(sessions).values({
         tokenHash: session.tokenHash,
         businessId: session.businessId,
-        createdAt: sql`datetime('now', 'localtime')`.toString(),
-        expiresAt: sql`datetime('now', 'localtime', '+${SESSION_TTL_DAYS} days')`.toString(),
+        createdAt: now.toISOString(),
+        expiresAt: expires.toISOString(),
       });
     },
 
@@ -53,7 +55,7 @@ export function createSessionRepository(db: DrizzleDb) {
     /** Limpia sesiones expiradas (mantenimiento opcional). */
     async deleteExpired(): Promise<void> {
       const now = new Date().toISOString();
-      await db.delete(sessions).where(sql`${sessions.expiresAt} <= ${now}`);
+      await db.delete(sessions).where(lte(sessions.expiresAt, now));
     },
   };
 }
