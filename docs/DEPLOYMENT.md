@@ -118,6 +118,24 @@ Nalu puede enviar **avisos de stock bajo** y el **resumen del día anterior** po
 | `CORS_ORIGIN` | Local (opcional) | Origen permitido en desarrollo |
 | `ALERT_FROM_EMAIL` | `wrangler.jsonc` → `vars` | Remitente de las alertas (dominio verificado) |
 
+### Permisos del token de Cloudflare
+
+Crea el token en el dashboard (**Mi perfil → Tokens de API → Crear token**) con la plantilla **"Edit Cloudflare Workers"** y **agrega manualmente D1 Edit** (la plantilla no lo incluye y es necesario para `wrangler d1 migrations apply`):
+
+| Permiso | Recurso | Incluido en la plantilla | Necesario para |
+|---|---|---|---|
+| Workers Scripts → Edit | Cuenta | ✅ | `wrangler deploy` (subir el Worker) |
+| Workers KV Storage → Edit | Cuenta | ✅ | Assets estáticos del Worker (frontend) |
+| Workers Routes → Edit | Zona | ✅ | Rutas en dominio propio (no usamos) |
+| Workers Tail → Read | Cuenta | ✅ | Logs de tail |
+| R2 Storage → Edit | Cuenta | ✅ | (no usado, viene por defecto) |
+| Account Settings → Read | Cuenta | ✅ | Resolver el account ID |
+| **D1 → Edit** | **Cuenta** | ❌ **agregar manual** | `wrangler d1 migrations apply nalu-db --remote` |
+| User Details → Read | Usuario | ✅ | Autenticación del token |
+| User Memberships → Read | Usuario | ✅ | Resolver membresías |
+
+Alcance: **restringe el token a la cuenta de Nalu** (y a la zona si algún día usas dominio propio) — no uses "Todas las cuentas".
+
 ## CI/CD (GitHub Actions)
 
 - **Pull requests** → `ci.yml`: install, lint, typecheck, tests, build.
