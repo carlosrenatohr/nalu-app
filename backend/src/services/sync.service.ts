@@ -1,4 +1,4 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import { createSyncRepository, isConstraintError } from "../repositories/sync.repository";
 import { ApiError } from "../utils/http-error";
 
@@ -28,7 +28,7 @@ export interface SyncOperationResult {
  *                cliente conserva la operación para revisión
  */
 export function createSyncService(deps: {
-  db: Db;
+  db: DrizzleDb;
   applySale: (payload: { id: string } & Record<string, unknown>) => Promise<{ id: string }>;
   applyPurchase: (payload: { id: string } & Record<string, unknown>) => Promise<{ id: string }>;
   applyMovement: (payload: { id: string } & Record<string, unknown>) => Promise<{ id: string }>;
@@ -65,14 +65,13 @@ export function createSyncService(deps: {
       // 2. Aplicación de la operación
       try {
         const entity = await appliers[op.type](op.payload);
-        // 3. Registro de la operación aplicada (fuera del batch de la
-        //    entidad: si este insert fallara, el reintento se detectaría
-        //    como "duplicate" por la clave primaria de la entidad).
-        await db.run(
-          `INSERT INTO sync_operations (op_id, operation_type, entity_type, entity_id, status, created_at)
-           VALUES (?, ?, ?, ?, 'applied', ?)`,
-          [opId, op.type, entityType, entity.id, new Date().toISOString()],
-        );
+        // 3. Registro de la operación aplicada
+        await syncRepo.create({
+          opId,
+          operationType: op.type,
+          entityType,
+          entityId: entity.id,
+        });
         results.push({ opId, status: "applied", entityId: entity.id });
       } catch (error) {
         // Reintento de una entidad ya creada → se trata como duplicado

@@ -2,10 +2,10 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import { SqliteDbAdapter } from "./sqlite-adapter";
+import { createDrizzleSqlite } from "./drizzle-sqlite";
 import { applyMigrations } from "./migrate";
 import { seedDatabase } from "./seed";
-import type { Db } from "./types";
+import type { DrizzleDb } from "./drizzle-types";
 
 export const DEFAULT_DB_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -16,7 +16,7 @@ export const DEFAULT_DB_PATH = join(
 );
 
 export interface OpenDbResult {
-  db: Db;
+  db: DrizzleDb;
   conn: DatabaseSync;
 }
 
@@ -26,7 +26,7 @@ export function openLocalDb(path: string = DEFAULT_DB_PATH): OpenDbResult {
   const conn = new DatabaseSync(path);
   conn.exec("PRAGMA foreign_keys = ON;");
   applyMigrations(conn);
-  return { db: new SqliteDbAdapter(conn), conn };
+  return { db: createDrizzleSqlite(conn), conn };
 }
 
 /** Base en memoria para tests: migraciones y, opcionalmente, datos semilla. */
@@ -37,5 +37,5 @@ export function createMemoryDb(withSeed: boolean = true): OpenDbResult {
   if (withSeed) {
     seedDatabase(conn);
   }
-  return { db: new SqliteDbAdapter(conn), conn };
+  return { db: createDrizzleSqlite(conn), conn };
 }

@@ -16,7 +16,7 @@
       "binding": "DB",
       "database_name": "nalu-db",
       "database_id": "9c980fbc-2418-449f-9980-8eed9c139d26",
-      "migrations_dir": "migrations"
+      "migrations_dir": "./drizzle"
     }
   ],
   // Alertas por email (Cloudflare Email Sending).

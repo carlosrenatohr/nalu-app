@@ -11,3 +11,4 @@ allowBuilds:
   workerd: true
   "@tailwindcss/oxide": true
   sharp: true
+  better-sqlite3: true

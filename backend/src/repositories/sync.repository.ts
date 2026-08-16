@@ -1,35 +1,32 @@
-import type { BatchStatement, Db } from "../db/types";
+import { eq } from "drizzle-orm";
+import type { DrizzleDb } from "../db/drizzle-types";
+import { syncOperations } from "../db/schema";
 
-export function createSyncRepository(db: Db) {
+export function createSyncRepository(db: DrizzleDb) {
   return {
     async exists(opId: string): Promise<boolean> {
-      const row = await db.first<{ n: number }>(
-        "SELECT 1 AS n FROM sync_operations WHERE op_id = ?",
-        [opId],
-      );
-      return row !== null;
+      const result = await db
+        .select({ opId: syncOperations.opId })
+        .from(syncOperations)
+        .where(eq(syncOperations.opId, opId))
+        .then((rows: { opId: string }[]) => rows[0] ?? null);
+      return result !== null;
     },
 
-    buildCreateStatements(op: {
+    async create(op: {
       opId: string;
       operationType: string;
       entityType: string;
       entityId: string;
-    }): BatchStatement[] {
-      return [
-        {
-          sql: `INSERT INTO sync_operations
-            (op_id, operation_type, entity_type, entity_id, status, created_at)
-            VALUES (?, ?, ?, ?, 'applied', ?)`,
-          params: [
-            op.opId,
-            op.operationType,
-            op.entityType,
-            op.entityId,
-            new Date().toISOString(),
-          ],
-        },
-      ];
+    }): Promise<void> {
+      await db.insert(syncOperations).values({
+        opId: op.opId,
+        operationType: op.operationType,
+        entityType: op.entityType,
+        entityId: op.entityId,
+        status: "applied",
+        createdAt: new Date().toISOString(),
+      });
     },
   };
 }

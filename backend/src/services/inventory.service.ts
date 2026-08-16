@@ -1,4 +1,4 @@
-import type { Db } from "../db/types";
+import type { DrizzleDb } from "../db/drizzle-types";
 import {
   calculateInventory,
   calculateInventoryValue,
@@ -22,7 +22,7 @@ export interface RegisterMovementInput {
   notes?: string;
 }
 
-export function createInventoryService(deps: { db: Db; getBusinessId: () => Promise<string> }) {
+export function createInventoryService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
   const { db, getBusinessId } = deps;
   const movementRepo = createMovementRepository(db);
   const flavorRepo = createFlavorRepository(db);
