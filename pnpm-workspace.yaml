@@ -1,0 +1,13 @@
+# Workspace de pnpm: frontend y backend comparten el mismo lockfile.
+packages:
+  - frontend
+  - backend
+
+# pnpm bloquea los scripts de instalación de dependencias por seguridad.
+# Estos paquetes SÍ necesitan ejecutar sus scripts (binarios nativos).
+allowBuilds:
+  core-js: true
+  esbuild: true
+  workerd: true
+  "@tailwindcss/oxide": true
+  sharp: true

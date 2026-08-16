@@ -1,0 +1,26 @@
+{
+  "name": "nalu",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Nalu — Asistente de negocio para la venta de paletas artesanales",
+  "scripts": {
+    "dev": "concurrently -n api,web -c cyan,magenta \"pnpm --filter @nalu/backend dev\" \"pnpm --filter @nalu/frontend dev\"",
+    "dev:worker": "pnpm --filter @nalu/backend dev:worker",
+    "build": "pnpm --filter @nalu/backend build && pnpm --filter @nalu/frontend build",
+    "test": "pnpm --filter @nalu/backend test && pnpm --filter @nalu/frontend test",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "lint": "pnpm --filter @nalu/backend lint && pnpm --filter @nalu/frontend lint",
+    "typecheck": "pnpm --filter @nalu/backend typecheck && pnpm --filter @nalu/frontend typecheck",
+    "db:migrate": "pnpm --filter @nalu/backend db:migrate",
+    "db:seed": "pnpm --filter @nalu/backend db:seed",
+    "preview": "pnpm --filter @nalu/frontend preview"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}

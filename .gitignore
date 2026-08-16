@@ -1,0 +1,39 @@
+# Dependencias
+node_modules/
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Base de datos local (node:sqlite)
+backend/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Wrangler / Cloudflare
+.wrangler/
+.dev.vars
+
+# Entorno
+.env
+.env.local
+.env.*.local
+
+# Cobertura de tests
+coverage/
+
+# Playwright (e2e)
+test-results/
+playwright-report/
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
