@@ -5,6 +5,7 @@ import { enqueue } from "@/lib/offline/outbox";
 import { syncEngine } from "@/lib/offline/syncEngine";
 import { newId } from "@/lib/utils/id";
 import type {
+  AuthSession,
   Business,
   Flavor,
   FlavorInventory,
@@ -22,12 +23,65 @@ import type {
   Supplier,
   SyncOperationResult,
 } from "@/types";
+import { clearSession, getToken, loadSession, persistSession } from "@/lib/offline/session";
 
 // ---------------------------------------------------------------------
 // APIs por recurso. Lecturas: intentan el servidor y caen al caché de
 // IndexedDB si no hay conexión. Escrituras: si no hay conexión, crean
 // la entidad local y encolan la operación en el outbox.
 // ---------------------------------------------------------------------
+
+// ---------------------------------------------------------------------
+// Autenticación: PIN + sesión de larga duración (90 días). El token se
+// guarda en IndexedDB (lib/offline/session) para sobrevivir recargas.
+// ---------------------------------------------------------------------
+export const authApi = {
+  async login(pin: string): Promise<AuthSession> {
+    const session = await apiRequest<AuthSession>("/auth/login", {
+      method: "POST",
+      body: { pin },
+    });
+    await persistSession(session.token, session.expiresAt);
+    await localDb.business.put(session.business);
+    return session;
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await apiRequest("/auth/logout", { method: "POST" });
+    } finally {
+      await clearSession();
+    }
+  },
+
+  /**
+   * Valida la sesión local contra el servidor; devuelve el negocio.
+   * Solo un 401 invalida la sesión: un error de red NO cierra sesión
+   * (offline-first: confiamos en el token local hasta que el servidor
+   * diga lo contrario).
+   */
+  async me(): Promise<Business | null> {
+    const token = getToken();
+    if (!token) return null;
+    try {
+      return await apiRequest<Business>("/auth/me");
+    } catch (err) {
+      if (err instanceof ApiClientError && err.status === 401) return null;
+      // Sin conexión: usamos el caché local del negocio.
+      return (await localDb.business.toCollection().first()) ?? null;
+    }
+  },
+
+  async changePin(currentPin: string, newPin: string): Promise<void> {
+    await apiRequest("/auth/change-pin", { method: "POST", body: { currentPin, newPin } });
+  },
+};
+
+/** Recupera la sesión persistida al arrancar (para el gate de la app). */
+export async function restoreSession(): Promise<boolean> {
+  const token = await loadSession();
+  return Boolean(token);
+}
 
 function applyLocalInventoryDelta(deltas: { flavorId: string; delta: number }[]): Promise<void> {
   return localDb.transaction("rw", localDb.inventory, async () => {

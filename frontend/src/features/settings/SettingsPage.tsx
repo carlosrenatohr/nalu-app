@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
+import { useAuth } from "@/hooks/useAuth";
 import {
+  authApi,
   businessApi,
   flavorsApi,
   locationsApi,
@@ -13,7 +15,7 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
-import { IconPlus } from "@/components/ui/icons";
+import { IconPlus, IconLock } from "@/components/ui/icons";
 
 // ---------------------------------------------------------------------
 // Ajustes: nombre, logo (color), precios por defecto, moneda, contacto,
@@ -24,15 +26,20 @@ import { IconPlus } from "@/components/ui/icons";
 export function SettingsPage() {
   const { toast } = useToast();
   const { business, reload, currency } = useBusiness();
+  const { logout } = useAuth();
 
   const [name, setName] = useState(business?.name ?? "");
   const [contact, setContact] = useState(business?.contact ?? "");
   const [reportFooter, setReportFooter] = useState(business?.reportFooter ?? "");
+  const [alertEmail, setAlertEmail] = useState(business?.alertEmail ?? "");
   const [primaryColor, setPrimaryColor] = useState(business?.primaryColor ?? "#36C9C6");
   const [secondaryColor, setSecondaryColor] = useState(business?.secondaryColor ?? "#FF6F91");
   const [purchaseCost, setPurchaseCost] = useState(String(business?.defaultPurchaseCost ?? 28));
   const [homePrice, setHomePrice] = useState(String(business?.defaultHomePrice ?? 60));
   const [saving, setSaving] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
 
   const locations = useAsync(() => locationsApi.list(true), []);
   const flavors = useAsync(() => flavorsApi.list(true), []);
@@ -53,6 +60,7 @@ export function SettingsPage() {
         secondaryColor,
         defaultPurchaseCost: Number(purchaseCost) || 0,
         defaultHomePrice: Number(homePrice) || 0,
+        alertEmail: alertEmail.trim() || null,
       });
       reload();
       toast("Ajustes guardados");
@@ -86,6 +94,24 @@ export function SettingsPage() {
       toast("Sabor agregado");
     } catch (err) {
       toast(err instanceof Error ? err.message : "No se pudo agregar", "error");
+    }
+  }
+
+  async function handleChangePin() {
+    if (!/^\d{4,6}$/.test(newPin)) {
+      toast("El nuevo PIN debe tener entre 4 y 6 dígitos", "error");
+      return;
+    }
+    setPinSaving(true);
+    try {
+      await authApi.changePin(currentPin, newPin);
+      setCurrentPin("");
+      setNewPin("");
+      toast("PIN actualizado");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "No se pudo cambiar el PIN", "error");
+    } finally {
+      setPinSaving(false);
     }
   }
 
@@ -129,6 +155,16 @@ export function SettingsPage() {
             onChange={(e) => setReportFooter(e.target.value)}
             placeholder="¡Gracias por tu compra!"
           />
+          <Input
+            label="Email para alertas 📬"
+            type="email"
+            value={alertEmail}
+            onChange={(e) => setAlertEmail(e.target.value)}
+            placeholder="tu@correo.com"
+          />
+          <p className="-mt-2 text-xs font-semibold text-cocoa-soft">
+            Recibirás avisos de stock bajo y el resumen diario. 📬
+          </p>
         </div>
       </Card>
 
@@ -164,6 +200,43 @@ export function SettingsPage() {
         <Button className="mt-4 w-full" onClick={handleSaveSettings} disabled={saving}>
           {saving ? "Guardando…" : "Guardar ajustes"}
         </Button>
+      </Card>
+
+      {/* Seguridad */}
+      <Card>
+        <CardHeader
+          title="Seguridad 🔐"
+          subtitle="Tu PIN de acceso (sesión de 90 días en este dispositivo)"
+        />
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="PIN actual"
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            value={currentPin}
+            onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="••••"
+          />
+          <Input
+            label="PIN nuevo"
+            type="password"
+            inputMode="numeric"
+            maxLength={6}
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="••••"
+          />
+        </div>
+        <div className="mt-4 flex flex-col gap-2">
+          <Button variant="secondary" onClick={handleChangePin} disabled={pinSaving}>
+            <IconLock className="h-5 w-5" />
+            {pinSaving ? "Guardando…" : "Cambiar PIN"}
+          </Button>
+          <Button variant="ghost" onClick={() => void logout()}>
+            Cerrar sesión
+          </Button>
+        </div>
       </Card>
 
       {/* Ubicaciones */}

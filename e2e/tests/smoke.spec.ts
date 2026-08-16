@@ -2,29 +2,47 @@
 // Tests e2e básicos de Nalu.
 //
 // Cubren el flujo crítico del negocio de punta a punta:
-//   1. La API responde (health).
-//   2. El dashboard carga sus estadísticas y acciones principales.
+//   1. La API responde (health, pública).
+//   2. Login con PIN (1234 de la semilla) y dashboard con sus stats.
 //   3. Venta rápida: elegir ubicación → sumar sabores → confirmar →
 //      la venta queda registrada y se ve en la lista.
+//   4. Inventario: sabores con su disponibilidad.
 //
-// Nota: la base e2e se limpia en global-setup, así que siempre partimos
-// de los datos semilla (sabores con inventario, ubicaciones, precios).
+// Nota: la base e2e se limpia en el comando del webServer, así que
+// siempre partimos de los datos semilla (PIN 1234, sabores, precios).
+// Cada test abre un contexto nuevo (sin sesión) → hace login.
 // ---------------------------------------------------------------------
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+const PIN = "1234";
+
+/** Inicia sesión con el PIN de la semilla y espera el dashboard. */
+async function login(page: Page): Promise<void> {
+  await page.goto("/");
+  await page.getByLabel("PIN de acceso").fill(PIN);
+  await page.getByRole("button", { name: "Entrar" }).click();
+  await expect(page.getByRole("heading", { name: /¡Hola/ })).toBeVisible();
+}
 
 test.describe("Smoke básico de Nalu", () => {
-  test("la API responde en /api/health", async ({ request }) => {
+  test("la API responde en /api/health (público)", async ({ request }) => {
     const res = await request.get("/api/health");
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     expect(body.success).toBe(true);
   });
 
-  test("el dashboard carga estadísticas y acciones", async ({ page }) => {
+  test("el login rechaza un PIN incorrecto", async ({ page }) => {
     await page.goto("/");
+    await page.getByLabel("PIN de acceso").fill("0000");
+    await page.getByRole("button", { name: "Entrar" }).click();
+    // El toast de error aparece y seguimos en la pantalla de login
+    await expect(page.getByText(/PIN incorrecto|No se pudo iniciar/)).toBeVisible();
+    await expect(page.getByLabel("PIN de acceso")).toBeVisible();
+  });
 
-    // Saludo con el nombre del negocio (semilla: Nalu)
-    await expect(page.getByRole("heading", { name: /¡Hola/ })).toBeVisible();
+  test("el dashboard carga estadísticas y acciones tras el login", async ({ page }) => {
+    await login(page);
 
     // Tarjetas de estadísticas del día. "Ventas de hoy" aparece dos veces
     // (tarjeta de stats + sección de ventas recientes) → tomamos la primera.
@@ -38,7 +56,7 @@ test.describe("Smoke básico de Nalu", () => {
   });
 
   test("venta rápida end-to-end (ubicación → sabores → confirmar)", async ({ page }) => {
-    await page.goto("/");
+    await login(page);
 
     // Entrar al flujo de venta desde la acción dominante del dashboard
     await page.getByRole("button", { name: "Registrar venta" }).click();
@@ -67,6 +85,7 @@ test.describe("Smoke básico de Nalu", () => {
   });
 
   test("el inventario lista los sabores con su disponibilidad", async ({ page }) => {
+    await login(page);
     await page.goto("/inventory");
     // Sabores de la semilla
     await expect(page.getByText("Coco")).toBeVisible();

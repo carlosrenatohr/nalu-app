@@ -17,6 +17,13 @@ import type {
 
 export type OutboxStatus = "pending" | "synced" | "failed";
 
+/** Sesión persistida (token de larga duración). Una sola fila clave "current". */
+export interface SessionRecord {
+  key: string;
+  token: string;
+  expiresAt: string;
+}
+
 export interface OutboxOp {
   /** ID de operación = UUID de la entidad (deduplicación en el servidor). */
   opId: string;
@@ -45,6 +52,7 @@ export class NaluDatabase extends Dexie {
   purchases!: Table<Purchase, string>;
   movements!: Table<InventoryMovement, string>;
   outbox!: Table<OutboxOp, string>;
+  session!: Table<SessionRecord, string>;
 
   constructor() {
     super("nalu");
@@ -58,6 +66,7 @@ export class NaluDatabase extends Dexie {
       purchases: "id, purchaseDate",
       movements: "id, flavorId, date",
       outbox: "opId, status, createdAt",
+      session: "key",
     });
   }
 }

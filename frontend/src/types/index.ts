@@ -23,8 +23,17 @@ export interface Business {
   secondaryColor: string;
   contact: string | null;
   reportFooter: string | null;
+  /** Email para alertas (stock bajo, resumen diario). */
+  alertEmail: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Respuesta de /api/auth/login. */
+export interface AuthSession {
+  token: string;
+  expiresAt: string;
+  business: Business;
 }
 
 export interface Flavor {

@@ -1,4 +1,5 @@
 import type { ApiErrorBody } from "@/types";
+import { getToken, notifyUnauthorized } from "@/lib/offline/session";
 
 // ---------------------------------------------------------------------
 // Cliente API tipado. Los componentes NUNCA hardcodean URLs ni llaman
@@ -32,9 +33,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       ).toString()}`
     : "";
 
+  // La sesión se adjunta en cada petición (excepto login, que la crea).
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (options.body !== undefined) headers["Content-Type"] = "application/json";
+  if (token && !path.startsWith("/auth/login")) headers["Authorization"] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}${path}${query}`, {
     method: options.method ?? "GET",
-    headers: options.body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
@@ -44,6 +51,10 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     | null;
 
   if (!res.ok || !json || !json.success) {
+    // Sesión expirada/inválida: cerramos sesión en toda la app.
+    if (res.status === 401 && !path.startsWith("/auth/login")) {
+      notifyUnauthorized();
+    }
     const error = json && !json.success ? json.error : null;
     throw new ApiClientError(
       error?.code ?? "NETWORK_ERROR",
