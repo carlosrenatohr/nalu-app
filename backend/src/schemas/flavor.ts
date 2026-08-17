@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { uuidSchema } from "./common";
+import { moneySchema, uuidSchema } from "./common";
 
 export const hexColorSchema = z
   .string()
@@ -9,6 +9,8 @@ export const createFlavorSchema = z.object({
   name: z.string().trim().min(1, "Escribe el nombre del sabor.").max(60),
   emoji: z.string().trim().max(8).optional(),
   color: hexColorSchema.optional(),
+  costPrice: moneySchema.optional(),
+  salePrice: moneySchema.optional(),
   minStock: z.number().int().min(0).default(10),
 });
 

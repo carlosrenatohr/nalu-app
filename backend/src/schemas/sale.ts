@@ -20,6 +20,13 @@ export const createSaleSyncSchema = createSaleSchema.extend({
   id: uuidSchema,
 });
 
+export const updateSaleSchema = z.object({
+  saleDate: isoDateSchema.optional(),
+  location: z.string().trim().min(1).max(60).optional(),
+  notes: optionalText(500),
+  items: z.array(saleItemSchema).min(1, "Agrega al menos un sabor a la venta.").optional(),
+});
+
 export const saleListQuerySchema = z.object({
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),

@@ -13,7 +13,7 @@ import { createSyncControllers } from "../controllers/sync.controller";
 import { createAuthControllers } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth";
 import { validate, validateQuery } from "../middleware/validate";
-import { createSaleSchema, saleListQuerySchema } from "../schemas/sale";
+import { createSaleSchema, saleListQuerySchema, updateSaleSchema } from "../schemas/sale";
 import { createPurchaseSchema, purchaseListQuerySchema } from "../schemas/purchase";
 import { createMovementSchema } from "../schemas/inventory";
 import { createFlavorSchema, updateFlavorSchema } from "../schemas/flavor";
@@ -60,6 +60,8 @@ export function createApiRouter(deps: {
   router.get("/sales", validateQuery(saleListQuerySchema), sales.list);
   router.post("/sales", validate(createSaleSchema), sales.create);
   router.get("/sales/:id", sales.getById);
+  router.patch("/sales/:id", validate(updateSaleSchema), sales.update);
+  router.delete("/sales/:id", sales.delete);
 
   // Compras
   const purchases = createPurchaseControllers(services);
