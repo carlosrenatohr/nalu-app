@@ -109,7 +109,7 @@ export const flavorsApi = {
     }
   },
 
-  async create(input: { name: string; emoji?: string; color?: string; minStock?: number }): Promise<Flavor> {
+  async create(input: { name: string; emoji?: string; color?: string; costPrice?: number; salePrice?: number; minStock?: number }): Promise<Flavor> {
     if (!isOnline()) {
       const flavor: Flavor = {
         id: newId(),
@@ -118,6 +118,8 @@ export const flavorsApi = {
         slug: "",
         emoji: input.emoji ?? null,
         color: input.color ?? null,
+        costPrice: input.costPrice ?? null,
+        salePrice: input.salePrice ?? null,
         minStock: input.minStock ?? 10,
         active: true,
         createdAt: new Date().toISOString(),
@@ -138,7 +140,7 @@ export const flavorsApi = {
     }
   },
 
-  async update(id: string, input: Partial<{ name: string; emoji: string; minStock: number; active: boolean }>): Promise<Flavor> {
+  async update(id: string, input: Partial<{ name: string; emoji: string; color: string; costPrice: number; salePrice: number; minStock: number; active: boolean }>): Promise<Flavor> {
     const flavor = await apiRequest<Flavor>(`/flavors/${id}`, { method: "PATCH", body: input });
     await localDb.flavors.put(flavor);
     return flavor;
@@ -364,6 +366,20 @@ export const salesApi = {
       }
       throw err;
     }
+  },
+
+  async update(id: string, input: Partial<NewSaleInput>): Promise<Sale> {
+    const sale = await apiRequest<Sale>(`/sales/${id}`, { method: "PATCH", body: input });
+    await localDb.sales.put(sale);
+    await refreshInventoryCache();
+    return sale;
+  },
+
+  async delete(id: string): Promise<Sale> {
+    const sale = await apiRequest<Sale>(`/sales/${id}`, { method: "DELETE" });
+    await localDb.sales.delete(id);
+    await refreshInventoryCache();
+    return sale;
   },
 };
 
