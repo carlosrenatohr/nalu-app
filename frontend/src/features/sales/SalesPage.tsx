@@ -9,8 +9,10 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { IconCart, IconPlus } from "@/components/ui/icons";
+import { IconCart, IconPlus, IconEdit, IconTrash } from "@/components/ui/icons";
 import { cn } from "@/lib/utils/cn";
+import { EditSaleModal } from "./EditSaleModal";
+import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 import type { Sale } from "@/types";
 
 type Range = "today" | "week" | "all";
@@ -28,12 +30,15 @@ export function SalesPage() {
 
   const today = localToday();
   const from = range === "today" ? today : range === "week" ? addDays(today, -6) : undefined;
-  const { data: sales, loading, error } = useAsync(
+  const { data: sales, loading, error, reload } = useAsync(
     () => salesApi.list(from, range === "all" ? undefined : today),
     [from, range],
   );
 
   const total = (sales ?? []).reduce((acc, s) => acc + s.total, 0);
+
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -99,9 +104,29 @@ export function SalesPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-black text-cocoa">{formatMoney(sale.total, currency)}</p>
-                    <Badge tone="green">+{formatMoney(sale.profit ?? 0, currency)}</Badge>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-lg font-black text-cocoa">{formatMoney(sale.total, currency)}</p>
+                      <Badge tone="green">+{formatMoney(sale.profit ?? 0, currency)}</Badge>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setEditingSale(sale)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-cocoa-soft hover:bg-turquoise/10 hover:text-turquoise-deep"
+                        aria-label="Editar venta"
+                      >
+                        <IconEdit className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingSale(sale)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-cocoa-soft hover:bg-strawberry/10 hover:text-strawberry"
+                        aria-label="Eliminar venta"
+                      >
+                        <IconTrash className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -120,6 +145,22 @@ export function SalesPage() {
           }
         />
       )}
+
+      {/* Modal editar venta */}
+      <EditSaleModal
+        open={Boolean(editingSale)}
+        sale={editingSale}
+        onClose={() => setEditingSale(null)}
+        onSaved={reload}
+      />
+
+      {/* Modal eliminar venta */}
+      <ConfirmDeleteModal
+        open={Boolean(deletingSale)}
+        sale={deletingSale}
+        onClose={() => setDeletingSale(null)}
+        onDeleted={reload}
+      />
     </div>
   );
 }
