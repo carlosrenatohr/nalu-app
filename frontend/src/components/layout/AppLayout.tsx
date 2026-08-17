@@ -16,6 +16,7 @@ const NAV_ITEMS = [
   { to: "/", label: "Inicio", icon: IconHome, end: true },
   { to: "/sales", label: "Ventas", icon: IconCart },
   { to: "/inventory", label: "Inventario", icon: IconBox },
+  { to: "/flavors", label: "Sabores", icon: IconPopsicle },
   { to: "/reports", label: "Reportes", icon: IconChart },
   { to: "/more", label: "Más", icon: IconMore },
 ];
