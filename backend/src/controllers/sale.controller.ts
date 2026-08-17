@@ -31,5 +31,21 @@ export function createSaleControllers(services: Services) {
       }
       res.json(ok({ ...sale, profit: services.sales.estimateProfit(sale) }));
     },
+
+    update: async (req: Request, res: Response): Promise<void> => {
+      const input = parsed<{
+        saleDate?: string;
+        location?: string;
+        notes?: string | null;
+        items?: { flavorId: string; quantity: number; unitPrice: number }[];
+      }>(res);
+      const sale = await services.sales.update(param(req, "id"), input);
+      res.json(ok({ ...sale, profit: services.sales.estimateProfit(sale) }));
+    },
+
+    delete: async (req: Request, res: Response): Promise<void> => {
+      const sale = await services.sales.delete(param(req, "id"));
+      res.json(ok({ ...sale, profit: services.sales.estimateProfit(sale) }));
+    },
   };
 }

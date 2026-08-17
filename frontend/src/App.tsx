@@ -42,6 +42,9 @@ const ReportsPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })),
 );
+const FlavorsPage = lazy(() =>
+  import("@/features/flavors/FlavorsPage").then((m) => ({ default: m.FlavorsPage })),
+);
 const MorePage = lazy(() =>
   import("@/features/more/MorePage").then((m) => ({ default: m.MorePage })),
 );
@@ -79,6 +82,7 @@ function AppGate() {
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="inventory/:flavorId" element={<InventoryDetailPage />} />
             <Route path="suppliers" element={<SuppliersPage />} />
+            <Route path="flavors" element={<FlavorsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="more" element={<MorePage />} />

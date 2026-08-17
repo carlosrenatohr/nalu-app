@@ -16,6 +16,8 @@ export function createFlavorControllers(services: Services) {
         name: string;
         emoji?: string;
         color?: string;
+        costPrice?: number;
+        salePrice?: number;
         minStock?: number;
       }>(res);
       const flavor = await services.flavors.create(input);
@@ -27,6 +29,8 @@ export function createFlavorControllers(services: Services) {
         name?: string;
         emoji?: string;
         color?: string;
+        costPrice?: number;
+        salePrice?: number;
         minStock?: number;
       }>(res);
       const flavor = await services.flavors.update(param(req, "id"), input);

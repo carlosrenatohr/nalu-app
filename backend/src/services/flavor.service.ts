@@ -10,6 +10,8 @@ export interface CreateFlavorInput {
   name: string;
   emoji?: string;
   color?: string;
+  costPrice?: number;
+  salePrice?: number;
   minStock?: number;
 }
 
@@ -25,6 +27,8 @@ export function createFlavorService(deps: { db: DrizzleDb; getBusinessId: () => 
       slug: slugify(input.name),
       emoji: input.emoji?.trim() || null,
       color: input.color ?? null,
+      costPrice: input.costPrice ?? null,
+      salePrice: input.salePrice ?? null,
       minStock: input.minStock ?? 10,
     };
   }

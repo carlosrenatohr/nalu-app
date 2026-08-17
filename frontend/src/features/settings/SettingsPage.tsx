@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
 import { useAuth } from "@/hooks/useAuth";
 import {
   authApi,
   businessApi,
-  flavorsApi,
   locationsApi,
 } from "@/services/api";
 import { formatMoney } from "@/lib/formatting/currency";
@@ -24,6 +24,7 @@ import { IconPlus, IconLock } from "@/components/ui/icons";
 // ---------------------------------------------------------------------
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { business, reload, currency } = useBusiness();
   const { logout } = useAuth();
@@ -42,12 +43,9 @@ export function SettingsPage() {
   const [pinSaving, setPinSaving] = useState(false);
 
   const locations = useAsync(() => locationsApi.list(true), []);
-  const flavors = useAsync(() => flavorsApi.list(true), []);
 
   const [newLocation, setNewLocation] = useState("");
   const [locationModal, setLocationModal] = useState(false);
-  const [newFlavor, setNewFlavor] = useState("");
-  const [flavorModal, setFlavorModal] = useState(false);
 
   async function handleSaveSettings() {
     setSaving(true);
@@ -79,19 +77,6 @@ export function SettingsPage() {
       setNewLocation("");
       setLocationModal(false);
       toast("Ubicación agregada");
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "No se pudo agregar", "error");
-    }
-  }
-
-  async function handleAddFlavor() {
-    if (!newFlavor.trim()) return;
-    try {
-      await flavorsApi.create({ name: newFlavor.trim() });
-      flavors.reload();
-      setNewFlavor("");
-      setFlavorModal(false);
-      toast("Sabor agregado");
     } catch (err) {
       toast(err instanceof Error ? err.message : "No se pudo agregar", "error");
     }
@@ -273,31 +258,20 @@ export function SettingsPage() {
       <Card>
         <CardHeader
           title="Sabores"
-          subtitle="Agrega nuevos sabores a tu catálogo"
+          subtitle="Gestiona tu catálogo de sabores con precios y emojis"
           action={
             <button
               type="button"
-              onClick={() => setFlavorModal(true)}
+              onClick={() => navigate("/flavors")}
               className="flex min-h-10 items-center gap-1 rounded-full bg-turquoise/12 px-3 text-sm font-bold text-turquoise-deep"
             >
-              <IconPlus className="h-4 w-4" /> Agregar
+              Ver sabores →
             </button>
           }
         />
-        <ul className="flex flex-wrap gap-2">
-          {(flavors.data ?? []).map((flavor) => (
-            <li
-              key={flavor.id}
-              className="rounded-full bg-cream px-4 py-2 text-sm font-bold text-cocoa ring-1 ring-cocoa/10"
-            >
-              {flavor.emoji ?? "🍦"} {flavor.name}
-              {!flavor.active ? <span className="ml-1 text-xs text-cocoa-soft">(inactivo)</span> : null}
-            </li>
-          ))}
-          {flavors.data && flavors.data.length === 0 ? (
-            <li className="text-sm text-cocoa-soft">Sin sabores todavía.</li>
-          ) : null}
-        </ul>
+        <p className="text-sm text-cocoa-soft">
+          Administra sabores, precios de costo y venta, emojis y colores desde la página dedicada.
+        </p>
       </Card>
 
       {/* Modal nueva ubicación */}
@@ -316,26 +290,6 @@ export function SettingsPage() {
           value={newLocation}
           onChange={(e) => setNewLocation(e.target.value)}
           placeholder="Ej. Parque central"
-          autoFocus
-        />
-      </Modal>
-
-      {/* Modal nuevo sabor */}
-      <Modal
-        open={flavorModal}
-        onClose={() => setFlavorModal(false)}
-        title="Nuevo sabor"
-        footer={
-          <Button className="w-full" onClick={handleAddFlavor} disabled={!newFlavor.trim()}>
-            Agregar sabor
-          </Button>
-        }
-      >
-        <Input
-          label="Nombre del sabor"
-          value={newFlavor}
-          onChange={(e) => setNewFlavor(e.target.value)}
-          placeholder="Ej. Tamarindo"
           autoFocus
         />
       </Modal>

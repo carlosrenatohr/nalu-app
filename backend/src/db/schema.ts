@@ -35,6 +35,8 @@ export const flavors = sqliteTable("flavors", {
   slug: text("slug").notNull(),
   emoji: text("emoji"),
   color: text("color"),
+  costPrice: real("cost_price"),
+  salePrice: real("sale_price"),
   minStock: integer("min_stock").notNull().default(10),
   active: integer("active").notNull().default(1),
   createdAt: text("created_at")

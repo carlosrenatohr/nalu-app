@@ -10,6 +10,8 @@ interface FlavorRow {
   slug: string;
   emoji: string | null;
   color: string | null;
+  costPrice: number | null;
+  salePrice: number | null;
   minStock: number;
   active: number;
   createdAt: string;
@@ -27,6 +29,8 @@ export interface NewFlavor {
   slug: string;
   emoji: string | null;
   color: string | null;
+  costPrice: number | null;
+  salePrice: number | null;
   minStock: number;
 }
 
@@ -41,6 +45,8 @@ export function createFlavorRepository(db: DrizzleDb) {
         slug: flavor.slug,
         emoji: flavor.emoji,
         color: flavor.color,
+        costPrice: flavor.costPrice,
+        salePrice: flavor.salePrice,
         minStock: flavor.minStock,
         createdAt: now,
         updatedAt: now,
@@ -90,7 +96,7 @@ export function createFlavorRepository(db: DrizzleDb) {
     async update(
       businessId: string,
       id: string,
-      input: Partial<Pick<Flavor, "name" | "slug" | "emoji" | "color" | "minStock" | "active">>,
+      input: Partial<Pick<Flavor, "name" | "slug" | "emoji" | "color" | "costPrice" | "salePrice" | "minStock" | "active">>,
     ): Promise<Flavor | null> {
       const updateData: Record<string, unknown> = {
         updatedAt: new Date().toISOString(),
@@ -99,6 +105,8 @@ export function createFlavorRepository(db: DrizzleDb) {
       if (input.slug !== undefined) updateData.slug = input.slug;
       if (input.emoji !== undefined) updateData.emoji = input.emoji;
       if (input.color !== undefined) updateData.color = input.color;
+      if (input.costPrice !== undefined) updateData.costPrice = input.costPrice;
+      if (input.salePrice !== undefined) updateData.salePrice = input.salePrice;
       if (input.minStock !== undefined) updateData.minStock = input.minStock;
       if (input.active !== undefined) updateData.active = input.active ? 1 : 0;
 
