@@ -12,8 +12,9 @@ Nalu es una aplicación full-stack **offline-first** para un negocio de reventa 
 
 | 🚀 Funcionalidad | 📝 Detalle |
 |---|---|
+| 🍧 **Sabores** | CRUD completo: crear, editar, activar/desactivar. Emoji picker por categorías, precios de costo y venta, colores personalizados. |
 | 🛒 **Compras** | Registro de compras a proveedores con sabores, cantidades y costos. El inventario sube automáticamente. |
-| 💵 **Ventas** | Flujo móvil optimizado: **Venta rápida** en segundos, con ganancia estimada al instante. |
+| 💵 **Ventas** | Flujo móvil optimizado: **Venta rápida** en segundos, con ganancia estimada al instante. Edición y eliminación con confirmación visual. |
 | 📦 **Inventario** | Basado en **movimientos firmados** (modelo autoritativo). Disponible, último costo, valor estimado y historial por sabor. |
 | 🎁 **Regalar / Consumo propio / Pérdida** | Salidas que **no** generan ingresos — siempre visibles en el historial. |
 | 📊 **Reportes** | Hoy, semana, mes, rango personalizado: ventas, ganancia, margen, sabores top, análisis por ubicación y por precio. |
@@ -21,6 +22,7 @@ Nalu es una aplicación full-stack **offline-first** para un negocio de reventa 
 | 📴 **Offline-first** | Vende, compra y registra salidas **sin conexión**. Todo se sincroniza cuando vuelve la red. |
 | 📱 **PWA** | Instalable en la pantalla de inicio del móvil, con shell offline. |
 | ⚙️ **Ajustes** | Nombre del negocio, moneda, precios por defecto, ubicaciones, sabores y colores. |
+| 🏭 **Proveedores** | CRUD completo: crear, editar, activar/desactivar. Contacto y notas por proveedor. |
 
 ---
 
@@ -70,16 +72,16 @@ pnpm preview           # sirve el frontend construido
 nalu/
 ├── frontend/          # 🎨 React + Vite + Tailwind + PWA offline-first
 │   └── src/
-│       ├── components/   # ui/ (Button, Modal, …) y layout/
-│       ├── features/     # dashboard, sales, inventory, purchases, …
+│       ├── components/   # ui/ (Button, Modal, EmojiPicker, …) y layout/
+│       ├── features/     # dashboard, sales, flavors, inventory, purchases, suppliers, reports, settings, more
 │       ├── services/api/ # cliente API tipado por recurso
 │       ├── lib/offline/  # Dexie, outbox, motor de sincronización
 │       └── hooks/        # useAsync, useBusiness, useSyncStatus
-├── backend/           # ⚙️ Express + TypeScript + repositorios + D1
+├── backend/           # ⚙️ Express + TypeScript + Drizzle ORM + D1
 │   └── src/
 │       ├── routes/ controllers/ services/ repositories/ schemas/
 │       ├── domain/       # cálculos puros (ganancia, inventario)
-│       ├── db/           # adaptadores D1 / node:sqlite, migraciones
+│       ├── db/           # Drizzle schema, adaptadores D1 / node:sqlite, migraciones
 │       ├── migrations/   # SQL aplicable a D1 y local
 │       ├── server.ts     # entrada local (Node)
 │       └── worker.ts     # entrada Cloudflare Workers
@@ -96,6 +98,7 @@ nalu/
 
 Toda la documentación está en español 🇪🇸:
 
+- [📋 Changelog](CHANGELOG.md)
 - [🏛️ Arquitectura](docs/ARCHITECTURE.md)
 - [🗄️ Base de datos](docs/DATABASE.md)
 - [🧠 Reglas de negocio](docs/BUSINESS-RULES.md)
