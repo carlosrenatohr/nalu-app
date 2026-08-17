@@ -149,6 +149,137 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
     return saleRepo.getById(await getBusinessId(), id);
   }
 
+  async function deleteSale(id: string): Promise<Sale> {
+    const businessId = await getBusinessId();
+    const sale = await saleRepo.delete(businessId, id);
+    if (!sale) {
+      throw ApiError.notFound("La venta no existe.");
+    }
+    return sale;
+  }
+
+  async function update(
+    id: string,
+    input: {
+      saleDate?: string;
+      location?: string;
+      notes?: string | null;
+      items?: { flavorId: string; quantity: number; unitPrice: number }[];
+    },
+  ): Promise<Sale> {
+    const businessId = await getBusinessId();
+    const existing = await saleRepo.getById(businessId, id);
+    if (!existing) {
+      throw ApiError.notFound("La venta no existe.");
+    }
+
+    // Si se proveen items nuevos, recalcular todo
+    if (input.items && input.items.length > 0) {
+      const flavorIds = [...new Set(input.items.map((i) => i.flavorId))];
+
+      // Verificar que todos los sabores existan
+      const flavorsList = await flavorRepo.getByIds(businessId, flavorIds);
+      const flavorMap = new Map(flavorsList.map((f) => [f.id, f]));
+      for (const flavorId of flavorIds) {
+        if (!flavorMap.has(flavorId)) {
+          throw ApiError.notFound("Uno de los sabores de la venta no existe.");
+        }
+      }
+
+      // Obtener disponibilidad y costo promedio actual
+      const [availability, avgCosts] = await Promise.all([
+        movementRepo.availabilityByFlavor(businessId, flavorIds),
+        movementRepo.avgCostByFlavor(businessId),
+      ]);
+
+      // Calcular diferencia de inventario (restar lo que ya estaba, sumar lo nuevo)
+      const oldQuantities = new Map<string, number>();
+      for (const item of existing.items) {
+        oldQuantities.set(item.flavorId, (oldQuantities.get(item.flavorId) ?? 0) + item.quantity);
+      }
+      const newQuantities = new Map<string, number>();
+      for (const item of input.items) {
+        newQuantities.set(item.flavorId, (newQuantities.get(item.flavorId) ?? 0) + item.quantity);
+      }
+
+      // Verificar inventario suficiente para la diferencia neta
+      for (const [flavorId, newQty] of newQuantities) {
+        const oldQty = oldQuantities.get(flavorId) ?? 0;
+        const netChange = newQty - oldQty;
+        if (netChange > 0) {
+          const available = availability.get(flavorId) ?? 0;
+          if (available < netChange) {
+            const flavor = flavorMap.get(flavorId)!;
+            throw new ApiError(
+              409,
+              "INSUFFICIENT_INVENTORY",
+              `No hay suficientes paletas de ${flavor.name} disponibles.`,
+            );
+          }
+        }
+      }
+
+      // Construir nuevos items con costo histórico congelado
+      const newItems: SaleItem[] = input.items.map((it) => {
+        const flavor = flavorMap.get(it.flavorId)!;
+        return {
+          id: newId(),
+          saleId: id,
+          flavorId: it.flavorId,
+          flavorName: flavor.name,
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          unitCostSnapshot: avgCosts.get(it.flavorId) ?? 0,
+          subtotal: calculateLineSubtotal(it),
+        };
+      });
+
+      const total = calculateSaleTotal(newItems);
+
+      // Transacción atómica: eliminar viejos items/movimientos, crear nuevos, actualizar venta
+      await saleRepo.deleteItems(businessId, id);
+      await saleRepo.insertItems(businessId, id, newItems);
+
+      // Crear nuevos movimientos de inventario
+      const movements = newItems.map((it) => ({
+        id: newId(),
+        flavorId: it.flavorId,
+        movementType: "SALE" as const,
+        quantity: -it.quantity,
+        unitCost: it.unitCostSnapshot,
+        referenceId: id,
+        date: input.saleDate ?? existing.saleDate,
+        notes: null,
+      }));
+      await saleRepo.insertMovements(businessId, movements);
+
+      // Actualizar la venta
+      const updated = await saleRepo.update(businessId, id, {
+        saleDate: input.saleDate,
+        location: input.location,
+        notes: input.notes,
+        total,
+      });
+
+      if (!updated) {
+        throw ApiError.notFound("La venta no existe.");
+      }
+      return updated;
+    }
+
+    // Sin cambios de items: solo actualizar metadatos
+    const updated = await saleRepo.update(businessId, id, {
+      saleDate: input.saleDate,
+      location: input.location,
+      notes: input.notes,
+    });
+
+    if (!updated) {
+      throw ApiError.notFound("La venta no existe.");
+    }
+    return updated;
+  }
+
   /** Ganancia estimada de una venta (para el resumen del frontend). */
   function estimateProfit(sale: Sale): number {
     // Los ítems guardan el costo histórico como unitCostSnapshot;
@@ -162,5 +293,5 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
     );
   }
 
-  return { create, list, getById, estimateProfit };
+  return { create, list, getById, delete: deleteSale, update, estimateProfit };
 }

@@ -36,6 +36,8 @@ export interface Flavor {
   slug: string;
   emoji: string | null;
   color: string | null;
+  costPrice: number | null;
+  salePrice: number | null;
   minStock: number;
   active: boolean;
   createdAt: string;
