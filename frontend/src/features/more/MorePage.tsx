@@ -92,6 +92,20 @@ export function MorePage() {
       <p className="pt-4 text-center text-xs font-semibold text-cocoa-soft/60">
         Nalu · Asistente de negocio para paletas artesanales 🍧
       </p>
+      <a
+        href="https://nativerse.space"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 pt-2 opacity-60 transition-opacity hover:opacity-100"
+        aria-label="Powered by Nativerse"
+      >
+        <img
+          src="/nativerse-logo.webp"
+          alt="Nativerse"
+          className="h-5 w-auto object-contain"
+        />
+        <span className="text-[10px] font-bold text-cocoa-soft/50">Powered by Nativerse</span>
+      </a>
     </div>
   );
 }
