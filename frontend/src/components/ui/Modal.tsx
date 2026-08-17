@@ -16,16 +16,24 @@ interface ModalProps {
 // ---------------------------------------------------------------------
 export function Modal({ open, title, onClose, children, footer }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const alreadyFocused = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      alreadyFocused.current = false;
+      return;
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", onKey);
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
+    // Solo enfocar el panel en la apertura inicial, no en re-renders
+    if (!alreadyFocused.current) {
+      alreadyFocused.current = true;
+      panelRef.current?.focus();
+    }
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
