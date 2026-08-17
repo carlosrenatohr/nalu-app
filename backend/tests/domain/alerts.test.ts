@@ -37,6 +37,8 @@ function flavorInv(name: string, available: number, minStock: number): FlavorInv
       slug: name.toLowerCase(),
       emoji: "🍦",
       color: null,
+      costPrice: null,
+      salePrice: null,
       minStock,
       active: true,
       createdAt: "",

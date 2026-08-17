@@ -3,51 +3,49 @@ import { useAsync } from "@/hooks/useAsync";
 import { suppliersApi } from "@/services/api";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Input, Textarea } from "@/components/ui/Input";
-import { Modal } from "@/components/ui/Modal";
 import { Badge } from "@/components/ui/Badge";
-import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { IconPlus, IconStore } from "@/components/ui/icons";
+import { Modal } from "@/components/ui/Modal";
+import { useToast } from "@/components/ui/Toast";
+import { IconPlus, IconStore, IconEdit } from "@/components/ui/icons";
+import { SupplierModal } from "./SupplierModal";
 import type { Supplier } from "@/types";
+
+// ---------------------------------------------------------------------
+// CRUD completo de proveedores: listar, crear, editar y desactivar.
+// ---------------------------------------------------------------------
 
 export function SuppliersPage() {
   const { toast } = useToast();
   const { data: suppliers, loading, error, reload } = useAsync(() => suppliersApi.list(true), []);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [contact, setContact] = useState("");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  async function handleCreate() {
-    if (!name.trim()) {
-      toast("Escribe el nombre del proveedor", "error");
-      return;
-    }
-    setSaving(true);
-    try {
-      await suppliersApi.create({ name, contact, notes });
-      toast("Proveedor agregado");
-      setOpen(false);
-      setName("");
-      setContact("");
-      setNotes("");
-      reload();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "No se pudo agregar", "error");
-    } finally {
-      setSaving(false);
-    }
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [toggleModal, setToggleModal] = useState<Supplier | null>(null);
+  const [toggling, setToggling] = useState(false);
+
+  function handleCreate() {
+    setEditingSupplier(null);
+    setModalOpen(true);
   }
 
-  async function toggleActive(supplier: Supplier) {
+  function handleEdit(supplier: Supplier) {
+    setEditingSupplier(supplier);
+    setModalOpen(true);
+  }
+
+  async function handleToggleActive(supplier: Supplier) {
+    setToggling(true);
     try {
       await suppliersApi.update(supplier.id, { active: !supplier.active });
+      toast(supplier.active ? "Proveedor desactivado" : "Proveedor activado");
+      setToggleModal(null);
       reload();
     } catch (err) {
       toast(err instanceof Error ? err.message : "No se pudo actualizar", "error");
+    } finally {
+      setToggling(false);
     }
   }
 
@@ -57,10 +55,10 @@ export function SuppliersPage() {
         <div>
           <h1 className="text-2xl font-black text-cocoa">Proveedores 🏭</h1>
           <p className="text-sm font-semibold text-cocoa-soft">
-            De dónde llegan tus paletas
+            {suppliers ? `${suppliers.length} proveedores` : "Cargando…"}
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>
+        <Button onClick={handleCreate}>
           <IconPlus className="h-5 w-5" /> <span className="hidden sm:inline">Agregar</span>
         </Button>
       </div>
@@ -73,7 +71,7 @@ export function SuppliersPage() {
         <ul className="space-y-3">
           {suppliers.map((s) => (
             <li key={s.id}>
-              <Card>
+              <Card className="transition-shadow hover:shadow-card">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-grape/15 text-grape">
@@ -90,13 +88,27 @@ export function SuppliersPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => toggleActive(s)}
-                    className="min-h-11 rounded-full px-4 text-sm font-bold text-turquoise-deep hover:bg-turquoise/10"
-                  >
-                    {s.active ? "Desactivar" : "Activar"}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(s)}
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-cocoa-soft hover:bg-cocoa/5"
+                      aria-label={`Editar ${s.name}`}
+                    >
+                      <IconEdit className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setToggleModal(s)}
+                      className={`min-h-10 rounded-full px-3 text-xs font-bold transition-colors ${
+                        s.active
+                          ? "bg-strawberry/10 text-strawberry"
+                          : "bg-kiwi/15 text-kiwi"
+                      }`}
+                    >
+                      {s.active ? "Desactivar" : "Activar"}
+                    </button>
+                  </div>
                 </div>
               </Card>
             </li>
@@ -107,41 +119,44 @@ export function SuppliersPage() {
           emoji="🏭"
           title="No tienes proveedores"
           description="Agrega tu primer proveedor para registrar compras."
-          action={<Button onClick={() => setOpen(true)}>Agregar proveedor</Button>}
+          action={<Button onClick={handleCreate}>Agregar proveedor</Button>}
         />
       )}
 
+      {/* Modal crear/editar */}
+      <SupplierModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSaved={reload}
+        supplier={editingSupplier}
+      />
+
+      {/* Modal confirmar desactivar/activar */}
       <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title="Nuevo proveedor"
+        open={Boolean(toggleModal)}
+        onClose={() => setToggleModal(null)}
+        title={toggleModal?.active ? "Desactivar proveedor" : "Activar proveedor"}
         footer={
-          <Button className="w-full" onClick={handleCreate} disabled={saving}>
-            {saving ? "Guardando…" : "Guardar proveedor"}
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setToggleModal(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant={toggleModal?.active ? "danger" : "primary"}
+              className="flex-1"
+              onClick={() => toggleModal && handleToggleActive(toggleModal)}
+              disabled={toggling}
+            >
+              {toggling ? "Guardando…" : toggleModal?.active ? "Desactivar" : "Activar"}
+            </Button>
+          </div>
         }
       >
-        <div className="space-y-4">
-          <Input
-            label="Nombre"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej. Distribuidora La Tropical"
-            autoFocus
-          />
-          <Input
-            label="Contacto"
-            value={contact}
-            onChange={(e) => setContact(e.target.value)}
-            placeholder="Teléfono, persona…"
-          />
-          <Textarea
-            label="Notas"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Horarios, condiciones…"
-          />
-        </div>
+        <p className="text-sm text-cocoa">
+          {toggleModal?.active
+            ? `¿Desactivar "${toggleModal?.name}"? No aparecerá en las listas de compras.`
+            : `¿Reactivar "${toggleModal?.name}"? Volverá a estar disponible.`}
+        </p>
       </Modal>
     </div>
   );

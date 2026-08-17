@@ -16,6 +16,8 @@ const flavor = {
   slug: "coco",
   emoji: "🥥",
   color: "#F5E9D8",
+  costPrice: null,
+  salePrice: null,
   minStock: 10,
   active: true,
   createdAt: "2026-08-15T00:00:00.000Z",
