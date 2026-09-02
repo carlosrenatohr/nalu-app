@@ -6,8 +6,9 @@ import { param } from "../utils/request";
 
 export function createFlavorControllers(services: Services) {
   return {
-    list: async (_req: Request, res: Response): Promise<void> => {
-      const flavors = await services.flavors.list();
+    list: async (req: Request, res: Response): Promise<void> => {
+      const includeInactive = req.query.includeInactive === "true";
+      const flavors = await services.flavors.list(includeInactive);
       res.json(ok(flavors));
     },
 
@@ -32,6 +33,7 @@ export function createFlavorControllers(services: Services) {
         costPrice?: number;
         salePrice?: number;
         minStock?: number;
+        active?: boolean;
       }>(res);
       const flavor = await services.flavors.update(param(req, "id"), input);
       res.json(ok(flavor));

@@ -43,7 +43,7 @@ export function createFlavorService(deps: { db: DrizzleDb; getBusinessId: () => 
 
   async function update(
     id: string,
-    input: Partial<CreateFlavorInput>,
+    input: Partial<CreateFlavorInput> & { active?: boolean },
   ): Promise<Flavor> {
     const businessId = await getBusinessId();
     const existing = await flavorRepo.getById(businessId, id);

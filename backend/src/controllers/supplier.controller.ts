@@ -6,8 +6,9 @@ import { param } from "../utils/request";
 
 export function createSupplierControllers(services: Services) {
   return {
-    list: async (_req: Request, res: Response): Promise<void> => {
-      const suppliers = await services.suppliers.list();
+    list: async (req: Request, res: Response): Promise<void> => {
+      const includeInactive = req.query.includeInactive === "true";
+      const suppliers = await services.suppliers.list(includeInactive);
       res.json(ok(suppliers));
     },
 

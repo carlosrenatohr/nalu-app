@@ -14,7 +14,9 @@ export const createFlavorSchema = z.object({
   minStock: z.number().int().min(0).default(10),
 });
 
-export const updateFlavorSchema = createFlavorSchema.partial();
+export const updateFlavorSchema = createFlavorSchema.partial().extend({
+  active: z.boolean().optional(),
+});
 
 export const createFlavorSyncSchema = createFlavorSchema.extend({
   id: uuidSchema,
