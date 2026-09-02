@@ -12,7 +12,6 @@ let probeTimer: ReturnType<typeof setInterval> | null = null;
 let probeAbort: AbortController | null = null;
 
 const PROBE_INTERVAL = 30_000;
-const PROBE_TIMEOUT = 5_000;
 
 export function isOnline(): boolean {
   return online;
