@@ -41,6 +41,13 @@ backups/
 .codebase-memory/
 graphify-out/
 
+# Opencode skills lock file
+skills-lock.json
+
+# Agentes y configuración Claude
+.agents/
+.claude/
+
 # Logs
 *.log
 npm-debug.log*

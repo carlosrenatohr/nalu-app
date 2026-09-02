@@ -6,9 +6,19 @@ Guía para agentes de IA y desarrolladores que trabajan en **Nalu**, un asistent
 
 ---
 
+## 🛡️ Protocolo previo a toda tarea
+
+**Antes de iniciar cualquier tarea, el agente debe ejecutar obligatoriamente:**
+
+1. **Verificar codebase memory up-to-date:** Ejecutar `pnpm --filter @nalu/codebase-memory info` o revisar `.codebase-memory/graph.db.zst`. Confirmar que `schema_version` y `commit` están actualizados. Si el grafo no está actualizado, realizar `pnpm exec codebase-memory update` desde la raíz antes de continuar.
+
+*Este paso es obligatorio para evitar búsquedas grep/glob obsoletas y ahorrar tokens en cada operación.*
+
+---
+
 ## 🗺️ Mapa del repositorio
 
-Monorepo con **pnpm workspaces**:
+Monorepo con **pnpm workspaces**.
 
 ```
 nalu/
@@ -76,10 +86,11 @@ Route → Controller (HTTP) → Service (negocio) → Repository (SQL) → Db (D
 
 ## ✅ Antes de terminar una tarea
 
-1. `pnpm lint` y `pnpm typecheck` — cero errores.
-2. `pnpm test` — suite completa en verde (no romper tests existentes).
-3. Si el cambio es de negocio, verificar reglas críticas (sección arriba).
-4. Documentación en español si cambia arquitectura, BD o flujos.
+1. **Verificar codebase memory up-to-date:** Ejecutar `pnpm --filter @nalu/codebase-memory info` o revisar `.codebase-memory/graph.db.zst` para confirmar que el grafo está actualizado (schema_version, commit timestamp).
+2. `pnpm lint` y `pnpm typecheck` — cero errores.
+3. `pnpm test` — suite completa en verde (no romper tests existentes).
+4. Si el cambio es de negocio, verificar reglas críticas (sección arriba).
+5. Documentación en español si cambia arquitectura, BD o flujos.
 
 ## ☁️ Despliegue (resumen)
 
