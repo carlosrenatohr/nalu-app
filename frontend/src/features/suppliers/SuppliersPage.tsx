@@ -125,6 +125,7 @@ export function SuppliersPage() {
 
       {/* Modal crear/editar */}
       <SupplierModal
+        key={editingSupplier?.id ?? "new"}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSaved={reload}

@@ -148,6 +148,7 @@ export function SalesPage() {
 
       {/* Modal editar venta */}
       <EditSaleModal
+        key={editingSale?.id ?? "new"}
         open={Boolean(editingSale)}
         sale={editingSale}
         onClose={() => setEditingSale(null)}

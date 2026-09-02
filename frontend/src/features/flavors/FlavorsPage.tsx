@@ -148,6 +148,7 @@ export function FlavorsPage() {
 
       {/* Modal crear/editar */}
       <FlavorModal
+        key={editingFlavor?.id ?? "new"}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSaved={reload}
