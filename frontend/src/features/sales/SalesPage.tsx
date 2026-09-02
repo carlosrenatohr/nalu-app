@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
 import { salesApi } from "@/services/api";
@@ -30,9 +30,11 @@ const RANGES: { value: Range; label: string; emoji?: string }[] = [
 
 export function SalesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currency } = useBusiness();
   const today = localToday();
-  const [range, setRange] = useState<Range>("today");
+  const initialState = (location.state as { range?: Range } | null)?.range;
+  const [range, setRange] = useState<Range>(initialState ?? "today");
   const [customFrom, setCustomFrom] = useState(today);
   const [customTo, setCustomTo] = useState(today);
 

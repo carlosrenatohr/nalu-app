@@ -60,24 +60,42 @@ export function DashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <StatCard
-              tone="turquoise"
-              label="Ventas de hoy"
-              value={formatMoney(report.data?.totalSales ?? 0, currency)}
-              emoji="💰"
-            />
-            <StatCard
-              tone="strawberry"
-              label="Ganancia de hoy"
-              value={formatMoney(report.data?.profit ?? 0, currency)}
-              emoji="✨"
-            />
-            <StatCard
-              tone="mango"
-              label="Paletas vendidas"
-              value={String(report.data?.unitsSold ?? 0)}
-              emoji="🍦"
-            />
+            <button
+              type="button"
+              onClick={() => navigate("/sales", { state: { range: "today" } })}
+              className="text-left"
+            >
+              <StatCard
+                tone="turquoise"
+                label="Ventas de hoy"
+                value={formatMoney(report.data?.totalSales ?? 0, currency)}
+                emoji="💰"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/sales", { state: { range: "today" } })}
+              className="text-left"
+            >
+              <StatCard
+                tone="strawberry"
+                label="Ganancia de hoy"
+                value={formatMoney(report.data?.profit ?? 0, currency)}
+                emoji="✨"
+              />
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate("/sales", { state: { range: "today" } })}
+              className="text-left"
+            >
+              <StatCard
+                tone="mango"
+                label="Paletas vendidas"
+                value={String(report.data?.unitsSold ?? 0)}
+                emoji="🍦"
+              />
+            </button>
             <StatCard
               tone="kiwi"
               label="Inventario"
