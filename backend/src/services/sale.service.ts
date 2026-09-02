@@ -151,11 +151,16 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
 
   async function deleteSale(id: string): Promise<Sale> {
     const businessId = await getBusinessId();
-    const sale = await saleRepo.delete(businessId, id);
-    if (!sale) {
-      throw ApiError.notFound("La venta no existe.");
-    }
-    return sale;
+
+    const result = await db.transaction(async () => {
+      const sale = await saleRepo.delete(businessId, id);
+      if (!sale) {
+        throw ApiError.notFound("La venta no existe.");
+      }
+      return sale;
+    });
+
+    return result;
   }
 
   async function update(
@@ -237,28 +242,30 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
       const total = calculateSaleTotal(newItems);
 
       // Transacción atómica: eliminar viejos items/movimientos, crear nuevos, actualizar venta
-      await saleRepo.deleteItems(businessId, id);
-      await saleRepo.insertItems(businessId, id, newItems);
+      const updated = await db.transaction(async () => {
+        await saleRepo.deleteItems(businessId, id);
+        await saleRepo.insertItems(businessId, id, newItems);
 
-      // Crear nuevos movimientos de inventario
-      const movements = newItems.map((it) => ({
-        id: newId(),
-        flavorId: it.flavorId,
-        movementType: "SALE" as const,
-        quantity: -it.quantity,
-        unitCost: it.unitCostSnapshot,
-        referenceId: id,
-        date: input.saleDate ?? existing.saleDate,
-        notes: null,
-      }));
-      await saleRepo.insertMovements(businessId, movements);
+        // Crear nuevos movimientos de inventario
+        const movements = newItems.map((it) => ({
+          id: newId(),
+          flavorId: it.flavorId,
+          movementType: "SALE" as const,
+          quantity: -it.quantity,
+          unitCost: it.unitCostSnapshot,
+          referenceId: id,
+          date: input.saleDate ?? existing.saleDate,
+          notes: null,
+        }));
+        await saleRepo.insertMovements(businessId, movements);
 
-      // Actualizar la venta
-      const updated = await saleRepo.update(businessId, id, {
-        saleDate: input.saleDate,
-        location: input.location,
-        notes: input.notes,
-        total,
+        // Actualizar la venta
+        return saleRepo.update(businessId, id, {
+          saleDate: input.saleDate,
+          location: input.location,
+          notes: input.notes,
+          total,
+        });
       });
 
       if (!updated) {

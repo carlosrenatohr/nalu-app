@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 
 // ---------------------------------------------------------------------
 // Selector de emojis organizado por categorías temáticas.
-// Frutas 🍎, Chocolate 🍫, Dulces 🍬
+// Frutas, Chocolate, Dulces, Bebidas + entrada libre para emojis/ASCII.
 // ---------------------------------------------------------------------
 
 const EMOJI_CATEGORIES = [
@@ -28,6 +29,13 @@ const EMOJI_CATEGORIES = [
       "🍬", "🍭", "🍩", "🎂", "🍡", "🍥", "🧇", "🍨",
     ],
   },
+  {
+    label: "Bebidas",
+    emoji: "🥤",
+    items: [
+      "🥤", "🧋", "🥛", "🍵", "🧊", "🫧", "🍶", "🍺",
+    ],
+  },
 ];
 
 interface EmojiPickerProps {
@@ -36,6 +44,16 @@ interface EmojiPickerProps {
 }
 
 export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
+  const [customInput, setCustomInput] = useState("");
+
+  function handleCustomSubmit() {
+    const trimmed = customInput.trim();
+    if (trimmed.length > 0 && trimmed.length <= 8) {
+      onChange(trimmed);
+      setCustomInput("");
+    }
+  }
+
   return (
     <div className="space-y-3">
       {EMOJI_CATEGORIES.map((cat) => (
@@ -63,6 +81,32 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
           </div>
         </div>
       ))}
+
+      {/* Entrada libre para emojis, ASCII o dígitos */}
+      <div>
+        <span className="mb-1.5 block text-xs font-bold text-cocoa-soft">
+          ✏️ Personalizado
+        </span>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customInput}
+            onChange={(e) => setCustomInput(e.target.value.slice(0, 8))}
+            onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}
+            placeholder="Escribe un emoji o texto…"
+            maxLength={8}
+            className="flex-1 rounded-xl bg-cream px-3 py-2 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleCustomSubmit}
+            disabled={!customInput.trim()}
+            className="rounded-xl bg-turquoise px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-turquoise-deep disabled:opacity-40"
+          >
+            Usar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

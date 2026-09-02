@@ -98,9 +98,11 @@ function applyLocalInventoryDelta(deltas: { flavorId: string; delta: number }[])
 }
 
 export const flavorsApi = {
-  async list(_includeInactive = false): Promise<Flavor[]> {
+  async list(includeInactive = false): Promise<Flavor[]> {
     try {
-      const flavors = await apiRequest<Flavor[]>("/flavors");
+      const flavors = await apiRequest<Flavor[]>("/flavors", {
+        query: includeInactive ? { includeInactive: "true" } : undefined,
+      });
       await localDb.flavors.bulkPut(flavors);
       return flavors;
     } catch (err) {
@@ -148,9 +150,11 @@ export const flavorsApi = {
 };
 
 export const suppliersApi = {
-  async list(_includeInactive = false): Promise<Supplier[]> {
+  async list(includeInactive = false): Promise<Supplier[]> {
     try {
-      const suppliers = await apiRequest<Supplier[]>("/suppliers");
+      const suppliers = await apiRequest<Supplier[]>("/suppliers", {
+        query: includeInactive ? { includeInactive: "true" } : undefined,
+      });
       await localDb.suppliers.bulkPut(suppliers);
       return suppliers;
     } catch (err) {

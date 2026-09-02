@@ -2,14 +2,16 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
-import { inventoryApi, locationsApi, salesApi } from "@/services/api";
+import { flavorsApi, inventoryApi, locationsApi, salesApi } from "@/services/api";
 import { formatMoney, localToday } from "@/lib/formatting/currency";
 import { Button } from "@/components/ui/Button";
 import { Stepper } from "@/components/ui/Stepper";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
+import { Modal } from "@/components/ui/Modal";
+import { EmojiPicker } from "@/components/ui/EmojiPicker";
+import { IconArrowLeft, IconCheck, IconPlus } from "@/components/ui/icons";
 import { cn } from "@/lib/utils/cn";
 
 // ---------------------------------------------------------------------
@@ -29,18 +31,26 @@ export function NewSalePage() {
   const locations = useAsync(() => locationsApi.list(), []);
 
   const [location, setLocation] = useState("");
+  const [customLocation, setCustomLocation] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [unitPrice, setUnitPrice] = useState<number>(defaultHomePrice);
   const [customPrice, setCustomPrice] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // Modal crear sabor rápido
+  const [flavorModalOpen, setFlavorModalOpen] = useState(false);
+  const [newFlavorName, setNewFlavorName] = useState("");
+  const [newFlavorEmoji, setNewFlavorEmoji] = useState<string | null>(null);
+  const [newFlavorSaving, setNewFlavorSaving] = useState(false);
 
   const available = useMemo(
     () => new Map((inventory.data ?? []).map((i) => [i.flavor.id, i])),
     [inventory.data],
   );
 
-  // El precio efectivo considera el precio personalizado si se escribió
-  const effectivePrice = customPrice !== "" ? Number(customPrice) : unitPrice;
+  const parsedCustom = customPrice !== "" ? Number(customPrice) : null;
+  const isPriceValid = parsedCustom === null || (parsedCustom > 0 && Number.isFinite(parsedCustom));
+  const effectivePrice = isPriceValid ? (parsedCustom ?? unitPrice) : unitPrice;
 
   const selectedLines = useMemo(
     () =>
@@ -71,20 +81,41 @@ export function NewSalePage() {
     setQuantities((prev) => ({ ...prev, [flavorId]: qty }));
   }
 
+  // Ubicaciones ordenadas: "Otro" siempre al final
+  const sortedLocations = useMemo(() => {
+    const list = locations.data ?? [];
+    const other = list.filter((l) => l.name === "Otro");
+    const rest = list.filter((l) => l.name !== "Otro");
+    return [...rest, ...other];
+  }, [locations.data]);
+
+  const isOtherSelected = location === "Otro";
+  const effectiveLocation = isOtherSelected ? customLocation.trim() : location;
+
   async function handleSave() {
     if (selectedLines.length === 0) {
       toast("Agrega al menos un sabor", "error");
       return;
     }
-    if (!location) {
-      toast("Elige una ubicación", "error");
+    if (!effectiveLocation) {
+      toast(isOtherSelected ? "Escribe el nombre de la ubicación" : "Elige una ubicación", "error");
       return;
     }
     setSaving(true);
     try {
+      // Si es "Otro" y es una ubicación nueva, crearla primero
+      if (isOtherSelected && customLocation.trim()) {
+        const exists = (locations.data ?? []).some(
+          (l) => l.name.toLowerCase() === customLocation.trim().toLowerCase(),
+        );
+        if (!exists) {
+          await locationsApi.create({ name: customLocation.trim() });
+        }
+      }
+
       const sale = await salesApi.create({
         saleDate: localToday(),
-        location,
+        location: effectiveLocation,
         items: selectedLines.map((l) => ({
           flavorId: l.flavorId,
           quantity: l.qty,
@@ -97,6 +128,26 @@ export function NewSalePage() {
       toast(err instanceof Error ? err.message : "No se pudo registrar la venta", "error");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCreateFlavor() {
+    if (!newFlavorName.trim()) return;
+    setNewFlavorSaving(true);
+    try {
+      const flavor = await flavorsApi.create({
+        name: newFlavorName.trim(),
+        emoji: newFlavorEmoji ?? undefined,
+      });
+      toast(`Sabor "${flavor.name}" creado`);
+      setFlavorModalOpen(false);
+      setNewFlavorName("");
+      setNewFlavorEmoji(null);
+      inventory.reload();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "No se pudo crear el sabor", "error");
+    } finally {
+      setNewFlavorSaving(false);
     }
   }
 
@@ -133,7 +184,7 @@ export function NewSalePage() {
       <div>
         <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">¿Dónde vendes?</span>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Ubicación">
-          {(locations.data ?? []).map((loc) => (
+          {sortedLocations.map((loc) => (
             <button
               key={loc.id}
               type="button"
@@ -151,11 +202,32 @@ export function NewSalePage() {
             </button>
           ))}
         </div>
+        {isOtherSelected && (
+          <input
+            type="text"
+            value={customLocation}
+            onChange={(e) => setCustomLocation(e.target.value)}
+            placeholder="Escribe la ubicación…"
+            autoFocus
+            maxLength={60}
+            className="mt-2 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+          />
+        )}
       </div>
 
       {/* Sabores */}
       <div>
-        <span className="mb-2 block text-sm font-bold text-cocoa-soft">Sabores</span>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-bold text-cocoa-soft">Sabores</span>
+          <button
+            type="button"
+            onClick={() => setFlavorModalOpen(true)}
+            className="flex items-center gap-1 text-xs font-bold text-turquoise-deep hover:underline"
+          >
+            <IconPlus className="h-4 w-4" />
+            Nuevo
+          </button>
+        </div>
         <ul className="space-y-2.5">
           {inventory.data.map((inv) => (
             <li
@@ -221,10 +293,18 @@ export function NewSalePage() {
               placeholder={formatMoney(unitPrice, currency)}
               value={customPrice}
               onChange={(e) => setCustomPrice(e.target.value)}
-              className="min-h-11 w-28 rounded-full bg-white px-4 text-base font-extrabold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+              className={cn(
+                "min-h-11 w-28 rounded-full bg-white px-4 text-base font-extrabold text-cocoa ring-1 focus:ring-2 focus:outline-none",
+                customPrice !== "" && !isPriceValid
+                  ? "ring-fresa focus:ring-fresa"
+                  : "ring-cocoa/10 focus:ring-turquoise",
+              )}
             />
           </label>
         </div>
+        {customPrice !== "" && !isPriceValid && (
+          <p className="mt-1 text-xs font-semibold text-fresa">Ingresa un precio válido (mayor a 0)</p>
+        )}
       </div>
 
       {/* Resumen */}
@@ -255,6 +335,41 @@ export function NewSalePage() {
         <IconCheck className="h-6 w-6" />
         {saving ? "Guardando…" : "Confirmar venta"}
       </Button>
+
+      {/* Modal crear sabor rápido */}
+      <Modal
+        open={flavorModalOpen}
+        onClose={() => setFlavorModalOpen(false)}
+        title="Nuevo sabor"
+        footer={
+          <Button
+            className="w-full"
+            onClick={handleCreateFlavor}
+            disabled={newFlavorSaving || !newFlavorName.trim()}
+          >
+            {newFlavorSaving ? "Creando…" : "Crear sabor"}
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Emoji del sabor</span>
+            <EmojiPicker value={newFlavorEmoji} onChange={setNewFlavorEmoji} />
+          </div>
+          <div>
+            <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Nombre</span>
+            <input
+              type="text"
+              value={newFlavorName}
+              onChange={(e) => setNewFlavorName(e.target.value)}
+              placeholder="Ej. Mango con Chile"
+              autoFocus
+              maxLength={60}
+              className="w-full rounded-2xl bg-cream px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

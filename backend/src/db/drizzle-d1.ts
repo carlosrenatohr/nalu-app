@@ -3,7 +3,11 @@ import * as schema from "./schema";
 
 // ---------------------------------------------------------------------
 // Adaptador Drizzle para Cloudflare D1 (producción / wrangler dev).
+//
+// SQLiteD1Session ya maneja transacciones con BEGIN/COMMIT/ROLLBACK
+// vía this.run(), así que no necesitamos hackear el adapter.
 // ---------------------------------------------------------------------
-export function createDrizzleD1(d1: D1Database) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createDrizzleD1(d1: D1Database): any {
   return drizzle(d1, { schema });
 }

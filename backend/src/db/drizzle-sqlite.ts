@@ -57,19 +57,19 @@ function wrapNodeSqlite(conn: DatabaseSync) {
     return wrapped;
   }
 
-  return {
+  const adapter = {
     prepare(sql: string) {
       return wrapStatement(conn.prepare(sql));
     },
     exec(sql: string) {
       conn.exec(sql);
     },
-    transaction<T>(fn: (tx: unknown) => T) {
+    transaction<T>(fn: (tx: never) => T) {
       return {
-        deferred(txFn: unknown): T {
+        async deferred(txFn: unknown): Promise<T> {
           runBegin("deferred");
           try {
-            const result = (fn as (tx: unknown) => T)(txFn);
+            const result = await (fn as (tx: unknown) => T)(txFn);
             conn.exec("COMMIT;");
             return result;
           } catch (error) {
@@ -77,10 +77,10 @@ function wrapNodeSqlite(conn: DatabaseSync) {
             throw error;
           }
         },
-        immediate(txFn: unknown): T {
+        async immediate(txFn: unknown): Promise<T> {
           runBegin("immediate");
           try {
-            const result = (fn as (tx: unknown) => T)(txFn);
+            const result = await (fn as (tx: unknown) => T)(txFn);
             conn.exec("COMMIT;");
             return result;
           } catch (error) {
@@ -88,10 +88,10 @@ function wrapNodeSqlite(conn: DatabaseSync) {
             throw error;
           }
         },
-        exclusive(txFn: unknown): T {
+        async exclusive(txFn: unknown): Promise<T> {
           runBegin("exclusive");
           try {
-            const result = (fn as (tx: unknown) => T)(txFn);
+            const result = await (fn as (tx: unknown) => T)(txFn);
             conn.exec("COMMIT;");
             return result;
           } catch (error) {
@@ -102,10 +102,11 @@ function wrapNodeSqlite(conn: DatabaseSync) {
       };
     },
   };
+  return adapter;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createDrizzleSqlite(conn: DatabaseSync): any {
-  const wrapped = wrapNodeSqlite(conn) as any;
-  return drizzle(wrapped, { schema });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return drizzle(wrapNodeSqlite(conn) as any, { schema });
 }

@@ -84,6 +84,25 @@ Route → Controller (HTTP) → Service (negocio) → Repository (SQL) → Db (D
 - **Offline-first**: Dexie (`src/lib/offline/db.ts`), outbox (`outbox.ts`), motor de sync (`syncEngine.ts`) con protección contra duplicados (opId = UUID de la entidad).
 - Diseño: tokens de color Nalu centralizados en `src/index.css` (Tailwind v4 `@theme`). Nada de colores sueltos en componentes. UI 100% en español, mobile-first, touch targets ≥ 44px.
 
+## 📝 Commits (Conventional Commits)
+
+Todos los commits deben seguir [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <asunto en inglés, conciso>
+
+<opcional: cuerpo en inglés, 1-2 oraciones, por qué>
+```
+
+**Tipos válidos:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`, `perf`, `ci`, `build`.
+
+**Reglas:**
+- Asunto ≤ 70 caracteres, en **inglés**.
+- Scope opcional: `feat(frontend):`, `fix(backend):`, etc.
+- Cuerpo solo si el *por qué* no es obvio; máximo 2 oraciones.
+- Sin `Co-Authored-By`, sin firmas, sin trailers automáticos.
+- No usar el término "CTE" en mensajes; usar `Sql` o un sustantivo descriptivo.
+
 ## ✅ Antes de terminar una tarea
 
 1. **Verificar codebase memory up-to-date:** Ejecutar `pnpm --filter @nalu/codebase-memory info` o revisar `.codebase-memory/graph.db.zst` para confirmar que el grafo está actualizado (schema_version, commit timestamp).

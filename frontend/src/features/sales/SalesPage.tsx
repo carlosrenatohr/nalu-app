@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
 import { salesApi } from "@/services/api";
-import { formatMoney, localToday, addDays, formatRelativeDay } from "@/lib/formatting/currency";
+import { formatMoney, localToday, addDays, startOfWeek, startOfMonth, formatRelativeDay } from "@/lib/formatting/currency";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -15,24 +15,70 @@ import { EditSaleModal } from "./EditSaleModal";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 import type { Sale } from "@/types";
 
-type Range = "today" | "week" | "all";
+type Range = "today" | "yesterday" | "7days" | "week" | "month" | "prev" | "all" | "custom";
 
-const RANGES: { value: Range; label: string }[] = [
-  { value: "today", label: "Hoy" },
-  { value: "week", label: "7 días" },
-  { value: "all", label: "Todo" },
+const RANGES: { value: Range; label: string; emoji?: string }[] = [
+  { value: "today", label: "Hoy", emoji: "📅" },
+  { value: "yesterday", label: "Ayer" },
+  { value: "7days", label: "7 días" },
+  { value: "week", label: "Semana" },
+  { value: "month", label: "Mes" },
+  { value: "prev", label: "Anterior" },
+  { value: "all", label: "Todos" },
+  { value: "custom", label: "Personalizado" },
 ];
 
 export function SalesPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currency } = useBusiness();
-  const [range, setRange] = useState<Range>("today");
-
   const today = localToday();
-  const from = range === "today" ? today : range === "week" ? addDays(today, -6) : undefined;
+  const initialState = (location.state as { range?: Range } | null)?.range;
+  const [range, setRange] = useState<Range>(initialState ?? "today");
+  const [customFrom, setCustomFrom] = useState(today);
+  const [customTo, setCustomTo] = useState(today);
+
+  let from: string | undefined;
+  let to: string | undefined;
+
+  switch (range) {
+    case "today":
+      from = today;
+      to = today;
+      break;
+    case "yesterday":
+      from = addDays(today, -1);
+      to = addDays(today, -1);
+      break;
+    case "7days":
+      from = addDays(today, -6);
+      to = today;
+      break;
+    case "week":
+      from = startOfWeek(today);
+      to = today;
+      break;
+    case "month":
+      from = startOfMonth(today);
+      to = today;
+      break;
+    case "prev":
+      from = undefined;
+      to = addDays(startOfMonth(today), -1);
+      break;
+    case "all":
+      from = undefined;
+      to = undefined;
+      break;
+    case "custom":
+      from = customFrom;
+      to = customTo;
+      break;
+  }
+
   const { data: sales, loading, error, reload } = useAsync(
-    () => salesApi.list(from, range === "all" ? undefined : today),
-    [from, range],
+    () => salesApi.list(from, to),
+    [from, to],
   );
 
   const total = (sales ?? []).reduce((acc, s) => acc + s.total, 0);
@@ -57,7 +103,7 @@ export function SalesPage() {
       </div>
 
       {/* Filtros por rango */}
-      <div className="flex gap-2" role="tablist" aria-label="Filtrar ventas">
+      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar ventas">
         {RANGES.map((r) => (
           <button
             key={r.value}
@@ -71,10 +117,38 @@ export function SalesPage() {
                 : "bg-white text-cocoa-soft ring-1 ring-cocoa/10",
             )}
           >
-            {r.label}
+            {r.emoji ? `${r.emoji} ` : ""}{r.label}
           </button>
         ))}
       </div>
+
+      {/* Selector de rango personalizado */}
+      {range === "custom" && (
+        <div className="flex items-center gap-3 rounded-2xl bg-white p-3 ring-1 ring-cocoa/10">
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-bold text-cocoa-soft">Desde</span>
+            <input
+              type="date"
+              value={customFrom}
+              max={customTo}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="min-h-10 rounded-xl bg-cream px-3 text-sm font-bold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+            />
+          </label>
+          <span className="text-sm font-bold text-cocoa-soft">al</span>
+          <label className="flex items-center gap-2">
+            <span className="text-xs font-bold text-cocoa-soft">Hasta</span>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom}
+              max={today}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="min-h-10 rounded-xl bg-cream px-3 text-sm font-bold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+            />
+          </label>
+        </div>
+      )}
 
       {loading ? (
         <PageLoader label="Cargando ventas…" />
@@ -148,6 +222,7 @@ export function SalesPage() {
 
       {/* Modal editar venta */}
       <EditSaleModal
+        key={editingSale?.id ?? "new"}
         open={Boolean(editingSale)}
         sale={editingSale}
         onClose={() => setEditingSale(null)}
