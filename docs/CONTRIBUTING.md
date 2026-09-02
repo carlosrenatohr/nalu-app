@@ -53,12 +53,18 @@ Toda la interfaz, documentación y comentarios van en **español latinoamericano
 
 ### Commits
 
-No hay formato forzado, pero se recomienda estilo descriptivo en español:
+Usar [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
-agregar filtro de fechas en reporte de ventas
-fix: inventario insuficiente no descontaba stock
+feat(frontend): agregar filtro de fechas en reporte de ventas
+fix(backend): inventario insuficiente no descontaba stock
 ```
+
+- **Tipos válidos:** `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`, `perf`, `ci`, `build`.
+- **Asunto en inglés**, ≤ 70 caracteres.
+- **Scope opcional:** `feat(frontend):`, `fix(backend):`, etc.
+- **Cuerpo** solo si el por qué no es obvio; máximo 2 oraciones.
+- Sin `Co-Authored-By`, sin firmas, sin trailers automáticos.
 
 ### Branching
 

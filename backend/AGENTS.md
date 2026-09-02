@@ -77,6 +77,10 @@ Route → Controller → Service → Repository → Db (D1 | node:sqlite)
 - API: `tests/api/api.test.ts` — Supertest contra la app Express real con BD SQLite fresca por caso.
 - Correr: `pnpm --filter @nalu/backend test`, watch: `pnpm --filter @nalu/backend test:watch`.
 
+## 📝 Commits
+
+Usar [Conventional Commits](https://www.conventionalcommits.org/): `<type>(<scope>): <asunto en inglés>`. Tipos: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`. Asunto ≤ 70 chars, en inglés. Sin `Co-Authored-By` ni firmas.
+
 ## ✅ Checklist antes de terminar
 
 1. `pnpm --filter @nalu/backend typecheck` y `pnpm --filter @nalu/backend lint` en cero.
