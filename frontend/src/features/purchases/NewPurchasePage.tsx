@@ -9,7 +9,8 @@ import { Input, Select, Textarea } from "@/components/ui/Input";
 import { Stepper } from "@/components/ui/Stepper";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
-import { IconArrowLeft, IconCheck } from "@/components/ui/icons";
+import { Modal } from "@/components/ui/Modal";
+import { IconArrowLeft, IconCheck, IconPlus } from "@/components/ui/icons";
 
 // ---------------------------------------------------------------------
 // Nueva compra: proveedor, fecha, sabores con cantidades y costos.
@@ -35,6 +36,12 @@ export function NewPurchasePage() {
   const [lines, setLines] = useState<Line[]>([]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Modal crear proveedor rápido
+  const [supplierModalOpen, setSupplierModalOpen] = useState(false);
+  const [newSupplierName, setNewSupplierName] = useState("");
+  const [newSupplierContact, setNewSupplierContact] = useState("");
+  const [newSupplierSaving, setNewSupplierSaving] = useState(false);
 
   const total = useMemo(
     () => lines.reduce((acc, l) => acc + l.quantity * l.unitCost, 0),
@@ -90,6 +97,27 @@ export function NewPurchasePage() {
     }
   }
 
+  async function handleCreateSupplier() {
+    if (!newSupplierName.trim()) return;
+    setNewSupplierSaving(true);
+    try {
+      const supplier = await suppliersApi.create({
+        name: newSupplierName.trim(),
+        contact: newSupplierContact.trim() || undefined,
+      });
+      toast(`Proveedor "${supplier.name}" creado`);
+      setSupplierModalOpen(false);
+      setNewSupplierName("");
+      setNewSupplierContact("");
+      setSupplierId(supplier.id);
+      suppliers.reload();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "No se pudo crear el proveedor", "error");
+    } finally {
+      setNewSupplierSaving(false);
+    }
+  }
+
   if (suppliers.loading || flavors.loading) return <PageLoader label="Cargando…" />;
 
   return (
@@ -110,18 +138,33 @@ export function NewPurchasePage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Select
-          label="Proveedor"
-          value={supplierId}
-          onChange={(e) => setSupplierId(e.target.value)}
-        >
-          <option value="">Elige un proveedor…</option>
-          {(suppliers.data ?? []).map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
+        <div>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Select
+                label="Proveedor"
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+              >
+                <option value="">Elige un proveedor…</option>
+                {(suppliers.data ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSupplierModalOpen(true)}
+              className="mb-0.5 flex h-11 items-center gap-1 rounded-2xl bg-turquoise/10 px-3 text-xs font-bold text-turquoise-deep transition-colors hover:bg-turquoise/20"
+              aria-label="Crear proveedor"
+            >
+              <IconPlus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nuevo</span>
+            </button>
+          </div>
+        </div>
         <Input
           label="Fecha de compra"
           type="date"
@@ -138,19 +181,19 @@ export function NewPurchasePage() {
             return (
               <li
                 key={flavor.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-[1.25rem] bg-white p-3 ring-1 ring-cocoa/5"
+                className="flex items-center justify-between gap-2 rounded-[1.25rem] bg-white p-3 ring-1 ring-cocoa/5"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="text-3xl" aria-hidden="true">
                     {flavor.emoji ?? "🍦"}
                   </span>
-                  <p className="font-extrabold text-cocoa">{flavor.name}</p>
+                  <p className="min-w-0 truncate font-extrabold text-cocoa">{flavor.name}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex shrink-0 items-center gap-2">
                   {line && line.quantity > 0 ? (
-                    <label className="flex items-center gap-2">
+                    <label className="flex items-center gap-1">
                       <span className="sr-only">Costo unitario de {flavor.name}</span>
-                      <span className="text-sm font-bold text-cocoa-soft">C$</span>
+                      <span className="text-xs font-bold text-cocoa-soft">C$</span>
                       <input
                         type="number"
                         inputMode="decimal"
@@ -160,7 +203,7 @@ export function NewPurchasePage() {
                         onChange={(e) =>
                           setLine(flavor.id, { unitCost: Math.max(0, Number(e.target.value) || 0) })
                         }
-                        className="h-10 w-20 rounded-xl bg-cream px-2 text-center text-sm font-extrabold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+                        className="h-9 w-16 rounded-xl bg-cream px-1 text-center text-xs font-extrabold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
                       />
                     </label>
                   ) : null}
@@ -202,6 +245,38 @@ export function NewPurchasePage() {
         <IconCheck className="h-6 w-6" />
         {saving ? "Guardando…" : "Guardar compra"}
       </Button>
+
+      {/* Modal crear proveedor rápido */}
+      <Modal
+        open={supplierModalOpen}
+        onClose={() => setSupplierModalOpen(false)}
+        title="Nuevo proveedor"
+        footer={
+          <Button
+            className="w-full"
+            onClick={handleCreateSupplier}
+            disabled={newSupplierSaving || !newSupplierName.trim()}
+          >
+            {newSupplierSaving ? "Creando…" : "Crear proveedor"}
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <Input
+            label="Nombre"
+            value={newSupplierName}
+            onChange={(e) => setNewSupplierName(e.target.value)}
+            placeholder="Ej. Distribuidora La Tropical"
+            autoFocus
+          />
+          <Input
+            label="Contacto (opcional)"
+            value={newSupplierContact}
+            onChange={(e) => setNewSupplierContact(e.target.value)}
+            placeholder="Teléfono, persona…"
+          />
+        </div>
+      </Modal>
     </div>
   );
 }
