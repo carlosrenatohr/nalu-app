@@ -196,14 +196,16 @@ export function exportPurchasesPdf(
 /** Captura el nodo del reporte como PNG y lo comparte/descarga. */
 export async function exportReportImage(node: HTMLElement, filename: string): Promise<void> {
   const dataUrl = await toPng(node, {
-    pixelRatio: 2,
+    pixelRatio: 3,
     cacheBust: true,
     backgroundColor: "#FFF9EF",
+    skipAutoScale: true,
   });
+
+  const blob = await (await fetch(dataUrl)).blob();
 
   // Intenta compartir (WhatsApp) si el navegador lo permite
   if (navigator.share && navigator.canShare) {
-    const blob = await (await fetch(dataUrl)).blob();
     const file = new File([blob], `${filename}.png`, { type: "image/png" });
     if (navigator.canShare({ files: [file] })) {
       try {
@@ -215,8 +217,10 @@ export async function exportReportImage(node: HTMLElement, filename: string): Pr
     }
   }
 
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = dataUrl;
+  link.href = url;
   link.download = `${filename}.png`;
   link.click();
+  URL.revokeObjectURL(url);
 }
