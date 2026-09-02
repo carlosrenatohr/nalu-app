@@ -48,7 +48,9 @@ export function NewSalePage() {
     [inventory.data],
   );
 
-  const effectivePrice = customPrice !== "" ? Number(customPrice) : unitPrice;
+  const parsedCustom = customPrice !== "" ? Number(customPrice) : null;
+  const isPriceValid = parsedCustom === null || (parsedCustom > 0 && Number.isFinite(parsedCustom));
+  const effectivePrice = isPriceValid ? (parsedCustom ?? unitPrice) : unitPrice;
 
   const selectedLines = useMemo(
     () =>
@@ -291,10 +293,18 @@ export function NewSalePage() {
               placeholder={formatMoney(unitPrice, currency)}
               value={customPrice}
               onChange={(e) => setCustomPrice(e.target.value)}
-              className="min-h-11 w-28 rounded-full bg-white px-4 text-base font-extrabold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+              className={cn(
+                "min-h-11 w-28 rounded-full bg-white px-4 text-base font-extrabold text-cocoa ring-1 focus:ring-2 focus:outline-none",
+                customPrice !== "" && !isPriceValid
+                  ? "ring-fresa focus:ring-fresa"
+                  : "ring-cocoa/10 focus:ring-turquoise",
+              )}
             />
           </label>
         </div>
+        {customPrice !== "" && !isPriceValid && (
+          <p className="mt-1 text-xs font-semibold text-fresa">Ingresa un precio válido (mayor a 0)</p>
+        )}
       </div>
 
       {/* Resumen */}
@@ -320,7 +330,7 @@ export function NewSalePage() {
         size="lg"
         className="w-full"
         onClick={handleSave}
-        disabled={saving || selectedLines.length === 0 || !effectiveLocation}
+        disabled={saving || selectedLines.length === 0 || !effectiveLocation || !isPriceValid}
       >
         <IconCheck className="h-6 w-6" />
         {saving ? "Guardando…" : "Confirmar venta"}
