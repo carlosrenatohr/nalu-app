@@ -330,7 +330,7 @@ export function NewSalePage() {
         size="lg"
         className="w-full"
         onClick={handleSave}
-        disabled={saving || selectedLines.length === 0 || !effectiveLocation || !isPriceValid}
+        disabled={saving || selectedLines.length === 0}
       >
         <IconCheck className="h-6 w-6" />
         {saving ? "Guardando…" : "Confirmar venta"}
