@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
@@ -7,13 +8,18 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { IconPlus, IconStore } from "@/components/ui/icons";
+import { ActionMenu } from "@/components/ui/ActionMenu";
+import { IconEdit, IconPlus, IconStore, IconTrash } from "@/components/ui/icons";
+import { EditPurchaseModal } from "./EditPurchaseModal";
+import { ConfirmDeletePurchaseModal } from "./ConfirmDeletePurchaseModal";
 import type { Purchase } from "@/types";
 
 export function PurchasesPage() {
   const navigate = useNavigate();
   const { currency } = useBusiness();
-  const { data: purchases, loading, error } = useAsync(() => purchasesApi.list(), []);
+  const { data: purchases, loading, error, reload } = useAsync(() => purchasesApi.list(), []);
+  const [editing, setEditing] = useState<Purchase | null>(null);
+  const [deleting, setDeleting] = useState<Purchase | null>(null);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -59,13 +65,31 @@ export function PurchasesPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-black text-cocoa">
-                      {formatMoney(purchase.totalCost, currency)}
-                    </p>
-                    <p className="text-xs font-semibold text-cocoa-soft">
-                      {purchase.items.reduce((acc, i) => acc + i.quantity, 0)} paletas
-                    </p>
+                  <div className="flex items-center gap-1">
+                    <div className="text-right">
+                      <p className="text-lg font-black text-cocoa">
+                        {formatMoney(purchase.totalCost, currency)}
+                      </p>
+                      <p className="text-xs font-semibold text-cocoa-soft">
+                        {purchase.items.reduce((acc, i) => acc + i.quantity, 0)} paletas
+                      </p>
+                    </div>
+                    <ActionMenu
+                      label={`Acciones de la compra de ${purchase.supplierName ?? "este proveedor"}`}
+                      items={[
+                        {
+                          label: "Editar",
+                          icon: <IconEdit className="h-4 w-4" />,
+                          onClick: () => setEditing(purchase),
+                        },
+                        {
+                          label: "Eliminar",
+                          icon: <IconTrash className="h-4 w-4" />,
+                          danger: true,
+                          onClick: () => setDeleting(purchase),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
               </Card>
@@ -84,6 +108,19 @@ export function PurchasesPage() {
           }
         />
       )}
+
+      <EditPurchaseModal
+        open={Boolean(editing)}
+        purchase={editing}
+        onClose={() => setEditing(null)}
+        onSaved={reload}
+      />
+      <ConfirmDeletePurchaseModal
+        open={Boolean(deleting)}
+        purchase={deleting}
+        onClose={() => setDeleting(null)}
+        onDeleted={reload}
+      />
     </div>
   );
 }

@@ -477,6 +477,23 @@ export const purchasesApi = {
       throw err;
     }
   },
+
+  async update(id: string, input: Partial<NewPurchaseInput>): Promise<Purchase> {
+    const purchase = await apiRequest<Purchase>(`/purchases/${id}`, {
+      method: "PATCH",
+      body: input,
+    });
+    await localDb.purchases.put(purchase);
+    await refreshInventoryCache();
+    return purchase;
+  },
+
+  async delete(id: string): Promise<Purchase> {
+    const purchase = await apiRequest<Purchase>(`/purchases/${id}`, { method: "DELETE" });
+    await localDb.purchases.delete(id);
+    await refreshInventoryCache();
+    return purchase;
+  },
 };
 
 export const reportsApi = {
