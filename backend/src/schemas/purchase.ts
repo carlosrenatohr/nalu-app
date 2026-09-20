@@ -15,6 +15,13 @@ export const createPurchaseSchema = z.object({
   items: z.array(purchaseItemSchema).min(1, "Agrega al menos un sabor a la compra."),
 });
 
+export const updatePurchaseSchema = z.object({
+  purchaseDate: isoDateSchema.optional(),
+  supplierId: uuidSchema.optional(),
+  notes: optionalText(500),
+  items: z.array(purchaseItemSchema).min(1, "Agrega al menos un sabor a la compra.").optional(),
+});
+
 export const createPurchaseSyncSchema = createPurchaseSchema.extend({
   id: uuidSchema,
 });

@@ -37,7 +37,7 @@ async function login(): Promise<string> {
 }
 
 /** Helper que añade el token Bearer a cada petición autenticada. */
-function api(verb: "get" | "post" | "patch", url: string) {
+function api(verb: "get" | "post" | "patch" | "delete", url: string) {
   const req = request(app)[verb](url);
   return token ? req.set("Authorization", `Bearer ${token}`) : req;
 }
@@ -220,6 +220,40 @@ describe("Ventas", () => {
     expect(res.body.data.items).toHaveLength(3);
     expect(res.body.data.location).toBe("Casa");
   });
+
+  it("al editar una venta conserva el costo histórico de las líneas sin cambios", async () => {
+    // Sabor nuevo: costo promedio controlado (sin movimientos previos)
+    const flavor = await api("post", "/api/flavors")
+      .send({ name: "Sabor Snapshot", emoji: "🍧", minStock: 0 });
+    expect(flavor.status).toBe(201);
+    const flavorId = flavor.body.data.id;
+
+    // Compra 10 @30 → costo promedio 30
+    await api("post", "/api/purchases")
+      .send({ supplierId: SUPPLIER_TROPICAL, items: [{ flavorId, quantity: 10, unitCost: 30 }] });
+
+    const sale = await api("post", "/api/sales")
+      .send({ location: "Puesto", items: [{ flavorId, quantity: 2, unitPrice: 60 }] });
+    expect(sale.status).toBe(201);
+    expect(sale.body.data.items[0].unitCostSnapshot).toBe(30);
+    const saleId = sale.body.data.id;
+
+    // El proveedor sube: compra 10 @40 → promedio ponderado (30×10 + 40×10) / 20 = 35
+    await api("post", "/api/purchases")
+      .send({ supplierId: SUPPLIER_TROPICAL, items: [{ flavorId, quantity: 10, unitCost: 40 }] });
+
+    // Misma cantidad → el snapshot original (30) se conserva, no se recongela
+    const unchanged = await api("patch", `/api/sales/${saleId}`)
+      .send({ items: [{ flavorId, quantity: 2, unitPrice: 60 }] });
+    expect(unchanged.status).toBe(200);
+    expect(unchanged.body.data.items[0].unitCostSnapshot).toBe(30);
+
+    // Cantidad modificada → la línea se trata como nueva venta parcial (costo actual 35)
+    const changed = await api("patch", `/api/sales/${saleId}`)
+      .send({ items: [{ flavorId, quantity: 3, unitPrice: 60 }] });
+    expect(changed.status).toBe(200);
+    expect(changed.body.data.items[0].unitCostSnapshot).toBe(35);
+  });
 });
 
 describe("Compras", () => {
@@ -248,6 +282,98 @@ describe("Compras", () => {
         items: [{ flavorId: FLAVORS.coco, quantity: 1, unitCost: 28 }],
       });
     expect(res.status).toBe(404);
+  });
+
+  it("edita una compra: cambia cantidades y el inventario refleja el neto", async () => {
+    // Coco inicia con 4 disponibles (semilla). Compra 10 → 14
+    const created = await api("post", "/api/purchases")
+      .send({
+        supplierId: SUPPLIER_TROPICAL,
+        items: [{ flavorId: FLAVORS.coco, quantity: 10, unitCost: 30 }],
+      });
+    expect(created.status).toBe(201);
+
+    // Editar a 6 @32 → disponible 4 + 6 = 10, último costo 32
+    const updated = await api("patch", `/api/purchases/${created.body.data.id}`)
+      .send({ items: [{ flavorId: FLAVORS.coco, quantity: 6, unitCost: 32 }] });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.totalCost).toBe(192);
+
+    const inv = await api("get", "/api/inventory");
+    const coco = inv.body.data.find(
+      (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
+    );
+    expect(coco.available).toBe(10);
+    expect(coco.lastCost).toBe(32);
+  });
+
+  it("edita una compra y bloquea si el inventario quedaría negativo", async () => {
+    // Coco: 4 semilla + 10 compra = 14. Vender 13 → queda 1.
+    const created = await api("post", "/api/purchases")
+      .send({
+        supplierId: SUPPLIER_TROPICAL,
+        items: [{ flavorId: FLAVORS.coco, quantity: 10, unitCost: 30 }],
+      });
+    expect(created.status).toBe(201);
+    await api("post", "/api/sales")
+      .send({ location: "Puesto", items: [{ flavorId: FLAVORS.coco, quantity: 13, unitPrice: 60 }] });
+
+    // Reducir la compra de 10 a 2 dejaría disponible 1 − 8 = −7 → 409
+    const res = await api("patch", `/api/purchases/${created.body.data.id}`)
+      .send({ items: [{ flavorId: FLAVORS.coco, quantity: 2, unitCost: 30 }] });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("INSUFFICIENT_INVENTORY");
+
+    // El inventario no cambió
+    const inv = await api("get", "/api/inventory");
+    const coco = inv.body.data.find(
+      (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
+    );
+    expect(coco.available).toBe(1);
+  });
+
+  it("elimina una compra y restaura el inventario", async () => {
+    // Oreo: 8 semilla + 5 compra = 13
+    const created = await api("post", "/api/purchases")
+      .send({
+        supplierId: SUPPLIER_TROPICAL,
+        items: [{ flavorId: FLAVORS.oreo, quantity: 5, unitCost: 28 }],
+      });
+    expect(created.status).toBe(201);
+
+    const del = await api("delete", `/api/purchases/${created.body.data.id}`);
+    expect(del.status).toBe(200);
+
+    const inv = await api("get", "/api/inventory");
+    const oreo = inv.body.data.find(
+      (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.oreo,
+    );
+    expect(oreo.available).toBe(8);
+  });
+
+  it("elimina una compra y bloquea si el inventario quedaría negativo", async () => {
+    // Coco: 4 semilla + 10 compra = 14. Vender 13 → queda 1.
+    const created = await api("post", "/api/purchases")
+      .send({
+        supplierId: SUPPLIER_TROPICAL,
+        items: [{ flavorId: FLAVORS.coco, quantity: 10, unitCost: 30 }],
+      });
+    expect(created.status).toBe(201);
+    await api("post", "/api/sales")
+      .send({ location: "Puesto", items: [{ flavorId: FLAVORS.coco, quantity: 13, unitPrice: 60 }] });
+
+    // Eliminar la compra dejaría disponible 1 − 10 = −9 → 409
+    const res = await api("delete", `/api/purchases/${created.body.data.id}`);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("INSUFFICIENT_INVENTORY");
+  });
+
+  it("devuelve 404 al editar o eliminar una compra inexistente", async () => {
+    const res = await api("patch", "/api/purchases/00000000-0000-4000-8000-000000000000")
+      .send({ notes: "nope" });
+    expect(res.status).toBe(404);
+    const del = await api("delete", "/api/purchases/00000000-0000-4000-8000-000000000000");
+    expect(del.status).toBe(404);
   });
 });
 

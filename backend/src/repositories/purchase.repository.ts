@@ -1,6 +1,6 @@
 import { eq, and, sql } from "drizzle-orm";
 import type { DrizzleDb } from "../db/drizzle-types";
-import { purchaseItems, purchases, suppliers, flavors } from "../db/schema";
+import { inventoryMovements, purchaseItems, purchases, suppliers, flavors } from "../db/schema";
 import type { Purchase, PurchaseItem } from "../domain/types";
 
 export interface NewPurchaseItem {
@@ -108,6 +108,116 @@ export function createPurchaseRepository(db: DrizzleDb) {
         ...p,
         items: byPurchase.get(p.id) ?? [],
       }));
+    },
+
+    async delete(businessId: string, id: string): Promise<Purchase | null> {
+      const purchase = await this.getById(businessId, id);
+      if (!purchase) return null;
+
+      // Eliminar movimientos de inventario asociados a esta compra
+      await db
+        .delete(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.businessId, businessId),
+            eq(inventoryMovements.referenceId, id),
+          ),
+        );
+
+      // Eliminar ítems (ON DELETE CASCADE lo haría, pero lo hacemos explícito)
+      await db.delete(purchaseItems).where(eq(purchaseItems.purchaseId, id));
+
+      // Eliminar la compra
+      await db
+        .delete(purchases)
+        .where(and(eq(purchases.businessId, businessId), eq(purchases.id, id)));
+
+      return purchase;
+    },
+
+    async update(
+      businessId: string,
+      id: string,
+      input: {
+        supplierId?: string;
+        purchaseDate?: string;
+        notes?: string | null;
+        totalCost?: number;
+      },
+    ): Promise<Purchase | null> {
+      const updateData: Record<string, unknown> = {
+        updatedAt: new Date().toISOString(),
+      };
+      if (input.supplierId !== undefined) updateData.supplierId = input.supplierId;
+      if (input.purchaseDate !== undefined) updateData.purchaseDate = input.purchaseDate;
+      if (input.notes !== undefined) updateData.notes = input.notes;
+      if (input.totalCost !== undefined) updateData.totalCost = input.totalCost;
+
+      await db
+        .update(purchases)
+        .set(updateData)
+        .where(and(eq(purchases.businessId, businessId), eq(purchases.id, id)));
+
+      return this.getById(businessId, id);
+    },
+
+    async deleteItems(businessId: string, purchaseId: string): Promise<void> {
+      // Eliminar movimientos de inventario de esta compra
+      await db
+        .delete(inventoryMovements)
+        .where(
+          and(
+            eq(inventoryMovements.businessId, businessId),
+            eq(inventoryMovements.referenceId, purchaseId),
+          ),
+        );
+
+      // Eliminar ítems de la compra
+      await db.delete(purchaseItems).where(eq(purchaseItems.purchaseId, purchaseId));
+    },
+
+    async insertItems(businessId: string, purchaseId: string, items: NewPurchaseItem[]): Promise<void> {
+      if (items.length === 0) return;
+      await db.insert(purchaseItems).values(
+        items.map((it) => ({
+          id: it.id,
+          purchaseId: it.purchaseId,
+          flavorId: it.flavorId,
+          quantity: it.quantity,
+          unitCost: it.unitCost,
+          subtotal: it.subtotal,
+        })),
+      );
+    },
+
+    async insertMovements(
+      businessId: string,
+      movements: {
+        id: string;
+        flavorId: string;
+        movementType: string;
+        quantity: number;
+        unitCost: number | null;
+        referenceId: string | null;
+        date: string;
+        notes: string | null;
+      }[],
+    ): Promise<void> {
+      if (movements.length === 0) return;
+      await db.insert(inventoryMovements).values(
+        movements.map((m) => ({
+          id: m.id,
+          businessId,
+          flavorId: m.flavorId,
+          movementType: m.movementType,
+          quantity: m.quantity,
+          unitCost: m.unitCost,
+          referenceId: m.referenceId,
+          date: m.date,
+          notes: m.notes,
+          createdAt: new Date().toISOString(),
+        })),
+      );
     },
   };
 }

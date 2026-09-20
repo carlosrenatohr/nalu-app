@@ -14,7 +14,11 @@ import { createAuthControllers } from "../controllers/auth.controller";
 import { requireAuth } from "../middleware/auth";
 import { validate, validateQuery } from "../middleware/validate";
 import { createSaleSchema, saleListQuerySchema, updateSaleSchema } from "../schemas/sale";
-import { createPurchaseSchema, purchaseListQuerySchema } from "../schemas/purchase";
+import {
+  createPurchaseSchema,
+  purchaseListQuerySchema,
+  updatePurchaseSchema,
+} from "../schemas/purchase";
 import { createMovementSchema } from "../schemas/inventory";
 import { createFlavorSchema, updateFlavorSchema } from "../schemas/flavor";
 import { createSupplierSchema, updateSupplierSchema } from "../schemas/supplier";
@@ -68,6 +72,8 @@ export function createApiRouter(deps: {
   router.get("/purchases", validateQuery(purchaseListQuerySchema), purchases.list);
   router.post("/purchases", validate(createPurchaseSchema), purchases.create);
   router.get("/purchases/:id", purchases.getById);
+  router.patch("/purchases/:id", validate(updatePurchaseSchema), purchases.update);
+  router.delete("/purchases/:id", purchases.delete);
 
   // Inventario
   const inventory = createInventoryControllers(services);
