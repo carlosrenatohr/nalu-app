@@ -31,5 +31,21 @@ export function createPurchaseControllers(services: Services) {
       }
       res.json(ok(purchase));
     },
+
+    update: async (req: Request, res: Response): Promise<void> => {
+      const input = parsed<{
+        purchaseDate?: string;
+        supplierId?: string;
+        notes?: string;
+        items?: { flavorId: string; quantity: number; unitCost: number }[];
+      }>(res);
+      const purchase = await services.purchases.update(param(req, "id"), input);
+      res.json(ok(purchase));
+    },
+
+    delete: async (req: Request, res: Response): Promise<void> => {
+      const purchase = await services.purchases.delete(param(req, "id"));
+      res.json(ok(purchase));
+    },
   };
 }

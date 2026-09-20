@@ -207,6 +207,15 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
         newQuantities.set(item.flavorId, (newQuantities.get(item.flavorId) ?? 0) + item.quantity);
       }
 
+      // Costo histórico original por sabor (primera línea existente).
+      // Regla crítica: las líneas cuya cantidad no cambió conservan su snapshot.
+      const originalSnapshots = new Map<string, number>();
+      for (const item of existing.items) {
+        if (!originalSnapshots.has(item.flavorId)) {
+          originalSnapshots.set(item.flavorId, item.unitCostSnapshot);
+        }
+      }
+
       // Verificar inventario suficiente para la diferencia neta
       for (const [flavorId, newQty] of newQuantities) {
         const oldQty = oldQuantities.get(flavorId) ?? 0;
@@ -227,6 +236,8 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
       // Construir nuevos items con costo histórico congelado
       const newItems: SaleItem[] = input.items.map((it) => {
         const flavor = flavorMap.get(it.flavorId)!;
+        const quantityUnchanged =
+          (oldQuantities.get(it.flavorId) ?? 0) === (newQuantities.get(it.flavorId) ?? 0);
         return {
           id: newId(),
           saleId: id,
@@ -234,7 +245,11 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
           flavorName: flavor.name,
           quantity: it.quantity,
           unitPrice: it.unitPrice,
-          unitCostSnapshot: avgCosts.get(it.flavorId) ?? 0,
+          // Líneas sin cambio de cantidad conservan el snapshot original;
+          // líneas agregadas o modificadas usan el costo del momento de la edición.
+          unitCostSnapshot: quantityUnchanged
+            ? (originalSnapshots.get(it.flavorId) ?? 0)
+            : (avgCosts.get(it.flavorId) ?? 0),
           subtotal: calculateLineSubtotal(it),
         };
       });
