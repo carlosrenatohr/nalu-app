@@ -406,6 +406,121 @@ describe("Salidas sin venta (regalo, consumo, pérdida)", () => {
   });
 });
 
+describe("Ajuste de stock bidireccional (con motivo)", () => {
+  it("ajuste negativo (salida) con motivo reduce el inventario", async () => {
+    // Coco = 4. Ajuste out 2 → 2
+    const res = await api("post", "/api/inventory/movements")
+      .send({
+        flavorId: FLAVORS.coco,
+        movementType: "ADJUSTMENT",
+        quantity: 2,
+        notes: "Producto dañado",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.quantity).toBe(-2);
+
+    const inv = await api("get", "/api/inventory");
+    const coco = inv.body.data.find(
+      (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
+    );
+    expect(coco.available).toBe(2);
+  });
+
+  it("ajuste positivo (entrada) con motivo aumenta el inventario", async () => {
+    const res = await api("post", "/api/inventory/movements")
+      .send({
+        flavorId: FLAVORS.coco,
+        movementType: "ADJUSTMENT",
+        quantity: 3,
+        direction: "in",
+        notes: "Conteo físico",
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.data.quantity).toBe(3);
+
+    const inv = await api("get", "/api/inventory");
+    const coco = inv.body.data.find(
+      (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
+    );
+    expect(coco.available).toBe(7);
+  });
+
+  it("rechaza un ajuste sin motivo", async () => {
+    const res = await api("post", "/api/inventory/movements")
+      .send({ flavorId: FLAVORS.coco, movementType: "ADJUSTMENT", quantity: 2 });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("rechaza un ajuste negativo mayor al disponible", async () => {
+    const res = await api("post", "/api/inventory/movements")
+      .send({ flavorId: FLAVORS.coco, movementType: "ADJUSTMENT", quantity: 99, notes: "x" });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe("INSUFFICIENT_INVENTORY");
+  });
+});
+
+describe("Ciclo de vida de sabores (eliminar / archivar / desactivar)", () => {
+  it("elimina físicamente un sabor sin referencias", async () => {
+    const created = await api("post", "/api/flavors")
+      .send({ name: "Sabor a borrar", emoji: "🍧", minStock: 0 });
+    expect(created.status).toBe(201);
+    const id = created.body.data.id;
+
+    const res = await api("delete", `/api/flavors/${id}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.archived).toBe(false);
+
+    const list = await api("get", "/api/flavors?includeInactive=true");
+    const found = list.body.data.find((f: { id: string }) => f.id === id);
+    expect(found).toBeUndefined();
+  });
+
+  it("archiva un sabor con referencias históricas y conserva el historial", async () => {
+    // Coco tiene movimientos/ventas históricas → se archiva, no se borra
+    const res = await api("delete", `/api/flavors/${FLAVORS.coco}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.archived).toBe(true);
+    expect(res.body.data.flavor.active).toBe(false);
+
+    // Oculta del listado normal
+    const list = await api("get", "/api/flavors");
+    const coco = list.body.data.find((f: { id: string }) => f.id === FLAVORS.coco);
+    expect(coco).toBeUndefined();
+
+    // Pero sigue en el inventario (histórico + actual)
+    const inv = await api("get", "/api/inventory");
+    const cocoInv = inv.body.data.find(
+      (i: { flavor: { id: string } }) => i.flavor.id === FLAVORS.coco,
+    );
+    expect(cocoInv).toBeDefined();
+    expect(cocoInv.available).toBe(4);
+  });
+
+  it("un sabor desactivado no puede usarse en una nueva venta", async () => {
+    await api("patch", `/api/flavors/${FLAVORS.coco}`).send({ active: false });
+    const res = await api("post", "/api/sales")
+      .send({ location: "Casa", items: [{ flavorId: FLAVORS.coco, quantity: 1, unitPrice: 60 }] });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("FLAVOR_INACTIVE");
+  });
+
+  it("un sabor desactivado no puede usarse en una nueva compra", async () => {
+    await api("patch", `/api/flavors/${FLAVORS.coco}`).send({ active: false });
+    const res = await api("post", "/api/purchases")
+      .send({ supplierId: SUPPLIER_TROPICAL, items: [{ flavorId: FLAVORS.coco, quantity: 1, unitCost: 28 }] });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("FLAVOR_INACTIVE");
+  });
+
+  it("un sabor desactivado puede seguir editándose en una venta existente", async () => {
+    await api("patch", `/api/flavors/${FLAVORS.coco}`).send({ active: false });
+    const res = await api("patch", "/api/sales/60000000-0000-4000-8000-000000000001")
+      .send({ items: [{ flavorId: FLAVORS.coco, quantity: 2, unitPrice: 60 }] });
+    expect(res.status).toBe(200);
+  });
+});
+
 describe("Reportes", () => {
   it("reporte de ventas con totales, ganancia, sabores, ubicaciones y precios", async () => {
     const today = new Date();

@@ -63,5 +63,35 @@ export function createFlavorService(deps: { db: DrizzleDb; getBusinessId: () => 
     return updated;
   }
 
-  return { create, list, update };
+  /**
+   * Elimina un sabor de forma segura para el historial:
+   * - Si no tiene referencias (movimientos/ventas/compras), lo borra físicamente.
+   * - Si tiene referencias históricas, lo archiva (active = false) para no
+   *   romper datos; el historial sigue mostrando el sabor.
+   * Devuelve el sabor (eliminado o archivado) y si quedó archivado.
+   */
+  async function deleteFlavor(
+    id: string,
+  ): Promise<{ flavor: Flavor; archived: boolean }> {
+    const businessId = await getBusinessId();
+    const existing = await flavorRepo.getById(businessId, id);
+    if (!existing) {
+      throw ApiError.notFound("El sabor no existe.");
+    }
+
+    const referenced = await flavorRepo.hasReferences(businessId, id);
+    if (!referenced) {
+      await flavorRepo.delete(businessId, id);
+      return { flavor: existing, archived: false };
+    }
+
+    // Archivado: oculto de ventas/compras nuevas, pero el historial lo conserva.
+    const archived = await flavorRepo.update(businessId, id, { active: false });
+    if (!archived) {
+      throw ApiError.notFound("El sabor no existe.");
+    }
+    return { flavor: archived, archived: true };
+  }
+
+  return { create, list, update, delete: deleteFlavor };
 }

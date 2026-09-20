@@ -38,5 +38,10 @@ export function createFlavorControllers(services: Services) {
       const flavor = await services.flavors.update(param(req, "id"), input);
       res.json(ok(flavor));
     },
+
+    delete: async (req: Request, res: Response): Promise<void> => {
+      const result = await services.flavors.delete(param(req, "id"));
+      res.json(ok(result));
+    },
   };
 }

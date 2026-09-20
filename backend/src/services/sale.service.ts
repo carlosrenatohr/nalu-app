@@ -32,12 +32,19 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
     const saleId = input.id ?? newId();
     const flavorIds = [...new Set(input.items.map((i) => i.flavorId))];
 
-    // 1. Verificamos que todos los sabores existan
+    // 1. Verificamos que todos los sabores existan y estén activos
     const flavors = await flavorRepo.getByIds(businessId, flavorIds);
     const flavorMap = new Map(flavors.map((f) => [f.id, f]));
     for (const flavorId of flavorIds) {
-      if (!flavorMap.has(flavorId)) {
+      const flavor = flavorMap.get(flavorId);
+      if (!flavor) {
         throw ApiError.notFound("Uno de los sabores de la venta no existe.");
+      }
+      if (!flavor.active) {
+        throw ApiError.badRequest(
+          "FLAVOR_INACTIVE",
+          `El sabor "${flavor.name}" está desactivado y no puede usarse en una nueva venta.`,
+        );
       }
     }
 

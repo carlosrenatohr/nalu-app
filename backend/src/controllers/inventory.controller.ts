@@ -28,6 +28,7 @@ export function createInventoryControllers(services: Services) {
         quantity: number;
         date: string;
         notes?: string;
+        direction?: "in" | "out";
       }>(res);
       const movement = await services.inventory.registerMovement(input);
       res.status(201).json(ok(movement));
