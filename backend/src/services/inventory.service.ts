@@ -20,6 +20,8 @@ export interface RegisterMovementInput {
   quantity: number;
   date: string;
   notes?: string;
+  /** Solo relevante para `ADJUSTMENT`: "in" aumenta, "out" (por defecto) disminuye. */
+  direction?: "in" | "out";
 }
 
 export function createInventoryService(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
@@ -88,7 +90,7 @@ export function createInventoryService(deps: { db: DrizzleDb; getBusinessId: () 
       throw ApiError.notFound("El sabor no existe.");
     }
 
-    const outbound = !isInbound(input.movementType);
+    const outbound = !isInbound(input.movementType) && !(input.movementType === "ADJUSTMENT" && input.direction === "in");
     if (outbound) {
       const available = (await movementRepo.availabilityByFlavor(businessId, [input.flavorId])).get(input.flavorId) ?? 0;
       if (available < input.quantity) {

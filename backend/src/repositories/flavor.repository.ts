@@ -1,6 +1,6 @@
 import { eq, and, asc, inArray } from "drizzle-orm";
 import type { DrizzleDb } from "../db/drizzle-types";
-import { flavors } from "../db/schema";
+import { flavors, inventoryMovements, saleItems, sales, purchaseItems, purchases } from "../db/schema";
 import type { Flavor } from "../domain/types";
 
 interface FlavorRow {
@@ -116,6 +116,42 @@ export function createFlavorRepository(db: DrizzleDb) {
         .where(and(eq(flavors.businessId, businessId), eq(flavors.id, id)));
 
       return this.getById(businessId, id);
+    },
+
+    /**
+     * Indica si el sabor tiene referencias históricas (movimientos de
+     * inventario, ítems de ventas o de compras). Si las tiene, no puede
+     * borrarse físicamente sin romper el historial → se archiva.
+     */
+    async hasReferences(businessId: string, id: string): Promise<boolean> {
+      const [mov, sale, purchase] = await Promise.all([
+        db
+          .select({ id: inventoryMovements.id })
+          .from(inventoryMovements)
+          .where(
+            and(eq(inventoryMovements.businessId, businessId), eq(inventoryMovements.flavorId, id)),
+          )
+          .limit(1),
+        db
+          .select({ id: saleItems.id })
+          .from(saleItems)
+          .innerJoin(sales, eq(sales.id, saleItems.saleId))
+          .where(and(eq(sales.businessId, businessId), eq(saleItems.flavorId, id)))
+          .limit(1),
+        db
+          .select({ id: purchaseItems.id })
+          .from(purchaseItems)
+          .innerJoin(purchases, eq(purchases.id, purchaseItems.purchaseId))
+          .where(and(eq(purchases.businessId, businessId), eq(purchaseItems.flavorId, id)))
+          .limit(1),
+      ]);
+      return mov.length > 0 || sale.length > 0 || purchase.length > 0;
+    },
+
+    async delete(businessId: string, id: string): Promise<void> {
+      await db
+        .delete(flavors)
+        .where(and(eq(flavors.businessId, businessId), eq(flavors.id, id)));
     },
   };
 }
