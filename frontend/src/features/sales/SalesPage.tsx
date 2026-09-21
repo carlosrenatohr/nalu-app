@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { IconCart, IconPlus, IconEdit, IconTrash } from "@/components/ui/icons";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 import { cn } from "@/lib/utils/cn";
 import { EditSaleModal } from "./EditSaleModal";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
@@ -183,24 +184,22 @@ export function SalesPage() {
                       <p className="text-lg font-black text-cocoa">{formatMoney(sale.total, currency)}</p>
                       <Badge tone="green">+{formatMoney(sale.profit ?? 0, currency)}</Badge>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditingSale(sale)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-cocoa-soft hover:bg-turquoise/10 hover:text-turquoise-deep"
-                        aria-label="Editar venta"
-                      >
-                        <IconEdit className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeletingSale(sale)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-cocoa-soft hover:bg-strawberry/10 hover:text-strawberry"
-                        aria-label="Eliminar venta"
-                      >
-                        <IconTrash className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <ActionMenu
+                      label={`Acciones de la venta en ${sale.location ?? "sin ubicación"}`}
+                      items={[
+                        {
+                          label: "Editar",
+                          icon: <IconEdit className="h-4 w-4" />,
+                          onClick: () => setEditingSale(sale),
+                        },
+                        {
+                          label: "Eliminar",
+                          icon: <IconTrash className="h-4 w-4" />,
+                          danger: true,
+                          onClick: () => setDeletingSale(sale),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
               </Card>

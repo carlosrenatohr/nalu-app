@@ -59,7 +59,7 @@ export function ConfirmDeleteModal({ open, sale, onClose, onDeleted }: ConfirmDe
             <IconAlert className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-sm font-extrabold text-strawberry">Acción irreversble</p>
+            <p className="text-sm font-extrabold text-strawberry">Acción irreversible</p>
             <p className="mt-0.5 text-sm text-cocoa">
               Esta venta será eliminada permanentemente. Los números actuales se verán afectados.
             </p>

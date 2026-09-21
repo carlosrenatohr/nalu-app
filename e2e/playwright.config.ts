@@ -13,6 +13,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   timeout: 30_000,
+  // Red de seguridad para CI: nunca dejar un run colgado (p. ej. si el
+  // teardown del webServer no libera el proceso hijo de tsx).
+  globalTimeout: 300_000,
   fullyParallel: false, // flujos que escriben en la misma BD → secuencial
   workers: 1,
   retries: process.env.CI ? 1 : 0,
