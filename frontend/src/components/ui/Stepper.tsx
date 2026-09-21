@@ -1,4 +1,10 @@
+import { useState } from "react";
 import { IconMinus, IconPlus } from "./icons";
+
+// ---------------------------------------------------------------------
+// Stepper de cantidad: botones − / + y entrada manual editable.
+// Escribir directamente el número (ej. "5") evita pulsar +1 varias veces.
+// ---------------------------------------------------------------------
 
 export function Stepper({
   value,
@@ -13,8 +19,27 @@ export function Stepper({
   max?: number;
   disabled?: boolean;
 }) {
-  const dec = () => onChange(Math.max(min, value - 1));
-  const inc = () => onChange(max !== undefined ? Math.min(max, value + 1) : value + 1);
+  const [draft, setDraft] = useState<string | null>(null);
+  const display = draft ?? String(value);
+
+  function commit(raw: string) {
+    const n = parseInt(raw, 10);
+    setDraft(null);
+    if (Number.isNaN(n)) return;
+    let v = n;
+    if (max !== undefined) v = Math.min(max, v);
+    v = Math.max(min, v);
+    onChange(v);
+  }
+
+  const dec = () => {
+    setDraft(null);
+    onChange(Math.max(min, value - 1));
+  };
+  const inc = () => {
+    setDraft(null);
+    onChange(max !== undefined ? Math.min(max, value + 1) : value + 1);
+  };
 
   return (
     <div
@@ -31,9 +56,18 @@ export function Stepper({
       >
         <IconMinus className="h-4 w-4" />
       </button>
-      <span className="w-8 text-center text-lg font-extrabold text-cocoa" aria-live="polite">
-        {value}
-      </span>
+      <input
+        value={display}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") commit((e.target as HTMLInputElement).value);
+        }}
+        inputMode="numeric"
+        aria-label="Cantidad"
+        className="w-10 bg-transparent text-center text-lg font-extrabold text-cocoa focus:outline-none"
+      />
       <button
         type="button"
         onClick={inc}

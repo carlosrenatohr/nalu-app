@@ -10,8 +10,9 @@ import type { FlavorInventory, MovementType } from "@/types";
 import { cn } from "@/lib/utils/cn";
 
 // ---------------------------------------------------------------------
-// Salidas de inventario SIN venta: regalar, consumo propio, pérdida.
-// Reducen inventario, crean el movimiento y NUNCA generan ingresos.
+// Salidas/entradas de inventario SIN venta: regalar, consumo propio,
+// pérdida, ajuste (± con motivo) y devolución. Crean el movimiento y
+// NUNCA generan ingresos. El ajuste es bidireccional y exige motivo.
 // ---------------------------------------------------------------------
 
 const EXIT_TYPES: { value: MovementType; label: string; emoji: string }[] = [
@@ -21,6 +22,12 @@ const EXIT_TYPES: { value: MovementType; label: string; emoji: string }[] = [
   { value: "ADJUSTMENT", label: "Ajuste", emoji: "⚖️" },
   { value: "RETURN", label: "Devolución", emoji: "↩️" },
 ];
+
+function titleFor(type: MovementType): string {
+  if (type === "RETURN") return "Registrar devolución";
+  if (type === "ADJUSTMENT") return "Ajuste de stock";
+  return "Registrar salida";
+}
 
 export function ExitModal({
   open,
@@ -38,6 +45,7 @@ export function ExitModal({
   const { toast } = useToast();
   const [flavorId, setFlavorId] = useState(presetFlavorId ?? inventory[0]?.flavor.id ?? "");
   const [movementType, setMovementType] = useState<MovementType>("GIFT");
+  const [direction, setDirection] = useState<"in" | "out">("out");
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,7 +56,10 @@ export function ExitModal({
 
   const selected = inventory.find((i) => i.flavor.id === flavorId);
   const isReturn = movementType === "RETURN";
-  const max = isReturn ? undefined : Math.max(0, selected?.available ?? 0);
+  const isAdjustment = movementType === "ADJUSTMENT";
+  const increasing = isReturn || (isAdjustment && direction === "in");
+  const isAdjustmentIn = isAdjustment && direction === "in";
+  const max = increasing ? undefined : Math.max(0, selected?.available ?? 0);
 
   async function handleSave() {
     if (!flavorId || quantity <= 0) return;
@@ -60,9 +71,16 @@ export function ExitModal({
         quantity,
         date: localToday(),
         notes: notes.trim() || undefined,
+        direction: isAdjustment ? direction : undefined,
       });
       const label = EXIT_TYPES.find((t) => t.value === movementType)?.label;
-      toast(isReturn ? "Devolución registrada" : `${label} registrado`);
+      toast(
+        isReturn
+          ? "Devolución registrada"
+          : isAdjustmentIn
+            ? "Ajuste de stock registrado"
+            : `${label} registrado`,
+      );
       onSaved?.();
       onClose();
       setQuantity(1);
@@ -78,7 +96,7 @@ export function ExitModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Registrar salida"
+      title={titleFor(movementType)}
       footer={
         <Button
           onClick={handleSave}
@@ -108,7 +126,10 @@ export function ExitModal({
                 type="button"
                 role="radio"
                 aria-checked={movementType === t.value}
-                onClick={() => setMovementType(t.value)}
+                onClick={() => {
+                  setMovementType(t.value);
+                  setDirection("out");
+                }}
                 className={cn(
                   "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 px-2 py-2 text-sm font-bold transition-colors",
                   movementType === t.value
@@ -123,6 +144,43 @@ export function ExitModal({
           </div>
         </div>
 
+        {/* Dirección del ajuste: puede aumentar o disminuir stock */}
+        {isAdjustment && (
+          <div>
+            <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Sentido del ajuste</span>
+            <div className="flex gap-2" role="radiogroup" aria-label="Sentido del ajuste">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={direction === "out"}
+                onClick={() => setDirection("out")}
+                className={cn(
+                  "min-h-11 flex-1 rounded-full px-4 text-sm font-bold transition-colors",
+                  direction === "out"
+                    ? "bg-strawberry text-white shadow-pop"
+                    : "bg-white text-cocoa-soft ring-1 ring-cocoa/10",
+                )}
+              >
+                Disminuir (−)
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={direction === "in"}
+                onClick={() => setDirection("in")}
+                className={cn(
+                  "min-h-11 flex-1 rounded-full px-4 text-sm font-bold transition-colors",
+                  direction === "in"
+                    ? "bg-kiwi text-cocoa shadow-pop"
+                    : "bg-white text-cocoa-soft ring-1 ring-cocoa/10",
+                )}
+              >
+                Aumentar (+)
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-end justify-between gap-4">
           <div>
             <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Cantidad</span>
@@ -131,10 +189,10 @@ export function ExitModal({
               onChange={setQuantity}
               min={1}
               max={max}
-              disabled={!isReturn && max === 0}
+              disabled={!increasing && max === 0}
             />
           </div>
-          {!isReturn && selected ? (
+          {!increasing && selected ? (
             <p className="pb-2 text-sm font-semibold text-cocoa-soft">
               Disponible: <span className="font-extrabold text-cocoa">{selected.available}</span>
             </p>
@@ -142,11 +200,11 @@ export function ExitModal({
         </div>
 
         <Input
-          label="Notas (opcional)"
+          label={isAdjustment ? "Motivo (obligatorio)" : "Notas (opcional)"}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="¿Para quién o por qué?"
-          maxLength={200}
+          placeholder={isAdjustment ? "Ej. producto dañado, conteo físico…" : "¿Para quién o por qué?"}
+          maxLength={300}
         />
       </div>
     </Modal>
