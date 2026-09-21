@@ -35,8 +35,9 @@ export async function listPending(): Promise<OutboxOp[]> {
     .sortBy("createdAt");
 }
 
+/** Operaciones aún sin sincronizar (pendientes + fallidas pendientes de reintento). */
 export async function countPending(): Promise<number> {
-  return localDb.outbox.where("status").equals("pending").count();
+  return localDb.outbox.where("status").anyOf("pending", "failed").count();
 }
 
 export async function markSynced(opId: string): Promise<void> {
@@ -44,5 +45,10 @@ export async function markSynced(opId: string): Promise<void> {
 }
 
 export async function markFailed(opId: string, message: string, attempts: number): Promise<void> {
-  await localDb.outbox.update(opId, { status: "failed", lastError: message, attempts });
+  await localDb.outbox.update(opId, {
+    status: "failed",
+    lastError: message,
+    attempts,
+    lastAttemptAt: Date.now(),
+  });
 }

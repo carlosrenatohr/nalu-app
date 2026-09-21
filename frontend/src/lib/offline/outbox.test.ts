@@ -80,4 +80,17 @@ describe("Marcado de resultados", () => {
     const pending = await listPending();
     expect(pending).toHaveLength(1);
   });
+
+  it("cuenta las fallidas como pendientes de sincronizar", async () => {
+    await enqueue("sale", { id: SALE_ID });
+    await markFailed(SALE_ID, "INSUFFICIENT_INVENTORY", 1);
+    expect(await countPending()).toBe(1);
+  });
+
+  it("registra el timestamp del último intento para el backoff", async () => {
+    await enqueue("sale", { id: SALE_ID });
+    await markFailed(SALE_ID, "error", 2);
+    const op = await localDb.outbox.get(SALE_ID);
+    expect(typeof op?.lastAttemptAt).toBe("number");
+  });
 });
