@@ -70,6 +70,12 @@ class SyncEngine {
     return this.state;
   }
 
+  /** Recalcula el contador de pendientes y notifica (p. ej. tras descartar una op). */
+  async refresh(): Promise<void> {
+    await this.refreshPending();
+    this.emit();
+  }
+
   /** Pide una sincronización (debounced para no saturar el servidor). */
   requestSync(delayMs = 1500): void {
     if (this.syncTimer) clearTimeout(this.syncTimer);
