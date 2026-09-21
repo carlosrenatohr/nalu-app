@@ -1,5 +1,6 @@
 import type { DrizzleDb } from "../db/drizzle-types";
-import { sales, saleItems, inventoryMovements } from "../db/schema";
+import { sales } from "../db/schema";
+import { runAtomic } from "../db/atomic";
 import {
   calculateLineSubtotal,
   calculateSaleProfit,
@@ -104,8 +105,8 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
       date: input.saleDate,
       notes: null,
     }));
-    await db.transaction(async (tx: DrizzleDb) => {
-      await tx.insert(sales).values({
+    await runAtomic(db, [
+      db.insert(sales).values({
         id: sale.id,
         businessId: sale.businessId,
         saleDate: sale.saleDate,
@@ -114,37 +115,10 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
         total: sale.total,
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
-      });
-      if (items.length > 0) {
-        await tx.insert(saleItems).values(
-          items.map((it) => ({
-            id: it.id,
-            saleId: it.saleId,
-            flavorId: it.flavorId,
-            quantity: it.quantity,
-            unitPrice: it.unitPrice,
-            unitCostSnapshot: it.unitCostSnapshot,
-            subtotal: it.subtotal,
-          })),
-        );
-      }
-      if (movements.length > 0) {
-        await tx.insert(inventoryMovements).values(
-          movements.map((m) => ({
-            id: m.id,
-            businessId: m.businessId,
-            flavorId: m.flavorId,
-            movementType: m.movementType,
-            quantity: m.quantity,
-            unitCost: m.unitCost,
-            referenceId: m.referenceId,
-            date: m.date,
-            notes: m.notes,
-            createdAt: new Date().toISOString(),
-          })),
-        );
-      }
-    });
+      }),
+      ...(await saleRepo.insertItemsStatements(businessId, saleId, items)),
+      ...(await saleRepo.insertMovementsStatements(businessId, movements)),
+    ]);
     return sale;
   }
 
@@ -159,15 +133,13 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
   async function deleteSale(id: string): Promise<Sale> {
     const businessId = await getBusinessId();
 
-    const result = await db.transaction(async () => {
-      const sale = await saleRepo.delete(businessId, id);
-      if (!sale) {
-        throw ApiError.notFound("La venta no existe.");
-      }
-      return sale;
-    });
+    const sale = await saleRepo.getById(businessId, id);
+    if (!sale) {
+      throw ApiError.notFound("La venta no existe.");
+    }
+    await runAtomic(db, await saleRepo.deleteStatements(businessId, id));
 
-    return result;
+    return sale;
   }
 
   async function update(
@@ -264,32 +236,29 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
       const total = calculateSaleTotal(newItems);
 
       // Transacción atómica: eliminar viejos items/movimientos, crear nuevos, actualizar venta
-      const updated = await db.transaction(async () => {
-        await saleRepo.deleteItems(businessId, id);
-        await saleRepo.insertItems(businessId, id, newItems);
-
-        // Crear nuevos movimientos de inventario
-        const movements = newItems.map((it) => ({
-          id: newId(),
-          flavorId: it.flavorId,
-          movementType: "SALE" as const,
-          quantity: -it.quantity,
-          unitCost: it.unitCostSnapshot,
-          referenceId: id,
-          date: input.saleDate ?? existing.saleDate,
-          notes: null,
-        }));
-        await saleRepo.insertMovements(businessId, movements);
-
-        // Actualizar la venta
-        return saleRepo.update(businessId, id, {
+      const movements = newItems.map((it) => ({
+        id: newId(),
+        flavorId: it.flavorId,
+        movementType: "SALE" as const,
+        quantity: -it.quantity,
+        unitCost: it.unitCostSnapshot,
+        referenceId: id,
+        date: input.saleDate ?? existing.saleDate,
+        notes: null,
+      }));
+      await runAtomic(db, [
+        ...(await saleRepo.deleteItemsStatements(businessId, id)),
+        ...(await saleRepo.insertItemsStatements(businessId, id, newItems)),
+        ...(await saleRepo.insertMovementsStatements(businessId, movements)),
+        saleRepo.updateStatements(businessId, id, {
           saleDate: input.saleDate,
           location: input.location,
           notes: input.notes,
           total,
-        });
-      });
+        }),
+      ]);
 
+      const updated = await saleRepo.getById(businessId, id);
       if (!updated) {
         throw ApiError.notFound("La venta no existe.");
       }
@@ -297,11 +266,14 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
     }
 
     // Sin cambios de items: solo actualizar metadatos
-    const updated = await saleRepo.update(businessId, id, {
-      saleDate: input.saleDate,
-      location: input.location,
-      notes: input.notes,
-    });
+    await runAtomic(db, [
+      saleRepo.updateStatements(businessId, id, {
+        saleDate: input.saleDate,
+        location: input.location,
+        notes: input.notes,
+      }),
+    ]);
+    const updated = await saleRepo.getById(businessId, id);
 
     if (!updated) {
       throw ApiError.notFound("La venta no existe.");

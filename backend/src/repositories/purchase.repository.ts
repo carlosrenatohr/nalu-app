@@ -110,12 +110,9 @@ export function createPurchaseRepository(db: DrizzleDb) {
       }));
     },
 
-    async delete(businessId: string, id: string): Promise<Purchase | null> {
-      const purchase = await this.getById(businessId, id);
-      if (!purchase) return null;
-
+    async deleteStatements(businessId: string, id: string): Promise<unknown[]> {
       // Eliminar movimientos de inventario asociados a esta compra
-      await db
+      const delMovements = db
         .delete(inventoryMovements)
         .where(
           and(
@@ -125,17 +122,17 @@ export function createPurchaseRepository(db: DrizzleDb) {
         );
 
       // Eliminar ítems (ON DELETE CASCADE lo haría, pero lo hacemos explícito)
-      await db.delete(purchaseItems).where(eq(purchaseItems.purchaseId, id));
+      const delItems = db.delete(purchaseItems).where(eq(purchaseItems.purchaseId, id));
 
       // Eliminar la compra
-      await db
+      const delPurchase = db
         .delete(purchases)
         .where(and(eq(purchases.businessId, businessId), eq(purchases.id, id)));
 
-      return purchase;
+      return [delMovements, delItems, delPurchase];
     },
 
-    async update(
+    updateStatements(
       businessId: string,
       id: string,
       input: {
@@ -144,7 +141,7 @@ export function createPurchaseRepository(db: DrizzleDb) {
         notes?: string | null;
         totalCost?: number;
       },
-    ): Promise<Purchase | null> {
+    ): unknown {
       const updateData: Record<string, unknown> = {
         updatedAt: new Date().toISOString(),
       };
@@ -153,17 +150,15 @@ export function createPurchaseRepository(db: DrizzleDb) {
       if (input.notes !== undefined) updateData.notes = input.notes;
       if (input.totalCost !== undefined) updateData.totalCost = input.totalCost;
 
-      await db
+      return db
         .update(purchases)
         .set(updateData)
         .where(and(eq(purchases.businessId, businessId), eq(purchases.id, id)));
-
-      return this.getById(businessId, id);
     },
 
-    async deleteItems(businessId: string, purchaseId: string): Promise<void> {
+    async deleteItemsStatements(businessId: string, purchaseId: string): Promise<unknown[]> {
       // Eliminar movimientos de inventario de esta compra
-      await db
+      const delMovements = db
         .delete(inventoryMovements)
         .where(
           and(
@@ -173,24 +168,30 @@ export function createPurchaseRepository(db: DrizzleDb) {
         );
 
       // Eliminar ítems de la compra
-      await db.delete(purchaseItems).where(eq(purchaseItems.purchaseId, purchaseId));
+      const delItems = db.delete(purchaseItems).where(eq(purchaseItems.purchaseId, purchaseId));
+
+      return [delMovements, delItems];
     },
 
-    async insertItems(businessId: string, purchaseId: string, items: NewPurchaseItem[]): Promise<void> {
-      if (items.length === 0) return;
-      await db.insert(purchaseItems).values(
-        items.map((it) => ({
-          id: it.id,
-          purchaseId: it.purchaseId,
-          flavorId: it.flavorId,
-          quantity: it.quantity,
-          unitCost: it.unitCost,
-          subtotal: it.subtotal,
-        })),
-      );
+    async insertItemsStatements(businessId: string, purchaseId: string, items: NewPurchaseItem[]): Promise<unknown[]> {
+      void businessId;
+      void purchaseId;
+      if (items.length === 0) return [];
+      return [
+        db.insert(purchaseItems).values(
+          items.map((it) => ({
+            id: it.id,
+            purchaseId: it.purchaseId,
+            flavorId: it.flavorId,
+            quantity: it.quantity,
+            unitCost: it.unitCost,
+            subtotal: it.subtotal,
+          })),
+        ),
+      ];
     },
 
-    async insertMovements(
+    async insertMovementsStatements(
       businessId: string,
       movements: {
         id: string;
@@ -202,22 +203,24 @@ export function createPurchaseRepository(db: DrizzleDb) {
         date: string;
         notes: string | null;
       }[],
-    ): Promise<void> {
-      if (movements.length === 0) return;
-      await db.insert(inventoryMovements).values(
-        movements.map((m) => ({
-          id: m.id,
-          businessId,
-          flavorId: m.flavorId,
-          movementType: m.movementType,
-          quantity: m.quantity,
-          unitCost: m.unitCost,
-          referenceId: m.referenceId,
-          date: m.date,
-          notes: m.notes,
-          createdAt: new Date().toISOString(),
-        })),
-      );
+    ): Promise<unknown[]> {
+      if (movements.length === 0) return [];
+      return [
+        db.insert(inventoryMovements).values(
+          movements.map((m) => ({
+            id: m.id,
+            businessId,
+            flavorId: m.flavorId,
+            movementType: m.movementType,
+            quantity: m.quantity,
+            unitCost: m.unitCost,
+            referenceId: m.referenceId,
+            date: m.date,
+            notes: m.notes,
+            createdAt: new Date().toISOString(),
+          })),
+        ),
+      ];
     },
   };
 }
