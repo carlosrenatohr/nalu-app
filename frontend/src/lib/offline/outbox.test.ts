@@ -35,6 +35,13 @@ describe("createOutboxOp", () => {
     expect(op.attempts).toBe(0);
     expect(op.createdAt).toBeTruthy();
   });
+
+  it("para update/delete usa un opId propio distinto del id de la entidad", () => {
+    const op = createOutboxOp("sale", { id: SALE_ID, items: [] }, "update");
+    expect(op.verb).toBe("update");
+    expect(op.opId).not.toBe(SALE_ID);
+    expect(op.payload.id).toBe(SALE_ID);
+  });
 });
 
 describe("Encolar y consultar", () => {

@@ -105,7 +105,12 @@ class SyncEngine {
 
     try {
       const { results } = await syncOperationsApi(
-        eligible.map((op) => ({ type: op.type, payload: op.payload })),
+        eligible.map((op) => ({
+          opId: op.opId,
+          type: op.type,
+          verb: op.verb ?? "create",
+          payload: op.payload,
+        })),
       );
       await this.applyResults(results, eligible);
     } catch (err) {
