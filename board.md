@@ -96,3 +96,14 @@ Add a row to the appropriate project section:
 
 | # | Tarea | Status | PR |
 |---|---|---|---|
+| 01 | **BUG crítico (v1.3.0):** crear/editar ventas y compras daba 500 en producción. Causa: `db.transaction` usa `BEGIN`, que D1 no soporta. Fix: `runAtomic` con `db.batch` (D1) / `db.transaction` (SQLite). | ✅ Done | #16 |
+
+## Backlog — CI / e2e (diferido)
+
+> Detener el trabajo de CI y manejarlo aquí. No bloquea deploys (main sin protección; `deploy.yml` no corre e2e).
+
+| # | Tarea | Status | PR |
+|---|---|---|---|
+| CI-1 | **Hang del job E2E en CI.** El paso "Tests e2e" queda `in_progress` 20+ min aunque el suite pasa local (~34s). Causa: el `webServer` del backend usa `tsx src/server.ts` (pnpm→tsx→node) y el hijo que abre :3002 queda huérfano en el teardown → Playwright espera para siempre. Red de seguridad ya aplicada: `globalTimeout: 300_000` (#14). | 🔜 Ready | — |
+| CI-2 | **Fix de raíz del hang (opción 2).** Cambiar el `webServer` del backend a correr el build compilado: `rm -f data/e2e.db* && pnpm exec tsc -p tsconfig.build.json && node dist/server.js` (proceso único que Playwright cierra limpio). Validar `pnpm test:e2e` local y en CI. | 📋 Backlog | — |
+| CI-3 | **Logs/diagnóstico CI.** El run colgado se inspecciona con `gh run view <id> --log` y `wrangler tail nalu-api` (los errores de negocio salen por `console.error` en `error-handler.ts`). | 📋 Backlog | — |
