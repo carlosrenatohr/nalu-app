@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
@@ -10,11 +10,14 @@ import { Stepper } from "@/components/ui/Stepper";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { Modal } from "@/components/ui/Modal";
+import { DraftBanner } from "@/components/ui/DraftBanner";
+import { clearDraft, draftKey, loadDraft, saveDraft } from "@/lib/drafts";
 import { IconArrowLeft, IconCheck, IconPlus } from "@/components/ui/icons";
 
 // ---------------------------------------------------------------------
 // Nueva compra: proveedor, fecha, sabores con cantidades y costos.
 // Al guardar: compra + ítems + movimientos de inventario (entrada).
+// Se guarda un borrador si el operador abandona el flujo.
 // ---------------------------------------------------------------------
 
 interface Line {
@@ -23,10 +26,17 @@ interface Line {
   unitCost: number;
 }
 
+interface PurchaseDraft {
+  supplierId: string;
+  date: string;
+  lines: Line[];
+  notes: string;
+}
+
 export function NewPurchasePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { defaultPurchaseCost, currency } = useBusiness();
+  const { defaultPurchaseCost, currency, business } = useBusiness();
 
   const suppliers = useAsync(() => suppliersApi.list(), []);
   const flavors = useAsync(() => flavorsApi.list(), []);
@@ -36,6 +46,37 @@ export function NewPurchasePage() {
   const [lines, setLines] = useState<Line[]>([]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Borrador: recupera uno guardado o crea uno nuevo mientras se edita.
+  const draftKeyPurchase = draftKey(business?.id, "purchase");
+  const [draftNotice, setDraftNotice] = useState<PurchaseDraft | null>(null);
+
+  useEffect(() => {
+    setDraftNotice(loadDraft<PurchaseDraft>(draftKeyPurchase));
+  }, [draftKeyPurchase]);
+
+  useEffect(() => {
+    if (draftNotice) return;
+    const t = setTimeout(() => {
+      saveDraft(draftKeyPurchase, { supplierId, date, lines, notes });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [draftKeyPurchase, supplierId, date, lines, notes, draftNotice]);
+
+  function handleContinueDraft() {
+    if (!draftNotice) return;
+    setSupplierId(draftNotice.supplierId ?? "");
+    setDate(draftNotice.date ?? localToday());
+    setLines(draftNotice.lines ?? []);
+    setNotes(draftNotice.notes ?? "");
+    clearDraft(draftKeyPurchase);
+    setDraftNotice(null);
+  }
+
+  function handleDiscardDraft() {
+    clearDraft(draftKeyPurchase);
+    setDraftNotice(null);
+  }
 
   // Modal crear proveedor rápido
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
@@ -88,6 +129,7 @@ export function NewPurchasePage() {
           .filter((l) => l.quantity > 0)
           .map((l) => ({ flavorId: l.flavorId, quantity: l.quantity, unitCost: l.unitCost })),
       });
+      clearDraft(draftKeyPurchase);
       toast(`Compra registrada: ${formatMoney(purchase.totalCost, currency)}`);
       navigate("/purchases");
     } catch (err) {
@@ -136,6 +178,10 @@ export function NewPurchasePage() {
           <p className="text-sm font-semibold text-cocoa-soft">Registra lo que compraste al proveedor</p>
         </div>
       </div>
+
+      {draftNotice ? (
+        <DraftBanner onContinue={handleContinueDraft} onDiscard={handleDiscardDraft} />
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
