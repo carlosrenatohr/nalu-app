@@ -47,6 +47,7 @@ export function ExitModal({
   const [movementType, setMovementType] = useState<MovementType>("GIFT");
   const [direction, setDirection] = useState<"in" | "out">("out");
   const [quantity, setQuantity] = useState(1);
+  const [date, setDate] = useState(localToday());
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -69,7 +70,7 @@ export function ExitModal({
         flavorId,
         movementType,
         quantity,
-        date: localToday(),
+        date,
         notes: notes.trim() || undefined,
         direction: isAdjustment ? direction : undefined,
       });
@@ -84,6 +85,7 @@ export function ExitModal({
       onSaved?.();
       onClose();
       setQuantity(1);
+      setDate(localToday());
       setNotes("");
     } catch (err) {
       toast(err instanceof Error ? err.message : "No se pudo registrar", "error");
@@ -180,6 +182,16 @@ export function ExitModal({
             </div>
           </div>
         )}
+
+        <div>
+          <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Fecha (por defecto hoy)</span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+          />
+        </div>
 
         <div className="flex items-end justify-between gap-4">
           <div>
