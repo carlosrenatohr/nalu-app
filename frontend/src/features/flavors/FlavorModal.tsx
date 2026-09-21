@@ -10,8 +10,12 @@ import { useToast } from "@/components/ui/Toast";
 import type { Flavor } from "@/types";
 
 // ---------------------------------------------------------------------
-// Modal para crear o editar un sabor con emoji, nombre, precios y color.
+// Modal para crear o editar un sabor con emoji, nombre, precios, stock
+// mínimo y color. El selector de emoji vive en un modal aparte para no
+// consumir espacio permanentemente en el formulario.
 // ---------------------------------------------------------------------
+
+const DEFAULT_EMOJI = "🍧";
 
 interface FlavorModalProps {
   open: boolean;
@@ -26,10 +30,12 @@ export function FlavorModal({ open, onClose, onSaved, flavor }: FlavorModalProps
   const isEditing = Boolean(flavor);
 
   const [name, setName] = useState(flavor?.name ?? "");
-  const [emoji, setEmoji] = useState<string | null>(flavor?.emoji ?? null);
+  const [emoji, setEmoji] = useState<string | null>(flavor?.emoji ?? DEFAULT_EMOJI);
   const [color, setColor] = useState(flavor?.color ?? "#36C9C6");
   const [costPrice, setCostPrice] = useState(String(flavor?.costPrice ?? ""));
   const [salePrice, setSalePrice] = useState(String(flavor?.salePrice ?? ""));
+  const [minStock, setMinStock] = useState(String(flavor?.minStock ?? 10));
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function handleSave() {
@@ -45,6 +51,7 @@ export function FlavorModal({ open, onClose, onSaved, flavor }: FlavorModalProps
         color,
         costPrice: costPrice !== "" ? Number(costPrice) : undefined,
         salePrice: salePrice !== "" ? Number(salePrice) : undefined,
+        minStock: minStock !== "" ? Math.max(0, Number(minStock)) : undefined,
       };
       if (isEditing && flavor) {
         await flavorsApi.update(flavor.id, input);
@@ -74,10 +81,17 @@ export function FlavorModal({ open, onClose, onSaved, flavor }: FlavorModalProps
       }
     >
       <div className="space-y-5">
-        {/* Emoji */}
+        {/* Emoji: botón compacto que abre el selector en modal */}
         <div>
           <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Emoji del sabor</span>
-          <EmojiPicker value={emoji} onChange={setEmoji} />
+          <button
+            type="button"
+            onClick={() => setEmojiOpen(true)}
+            className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cream text-4xl ring-1 ring-cocoa/10 transition-transform hover:scale-105"
+            aria-label="Cambiar emoji del sabor"
+          >
+            {emoji ?? DEFAULT_EMOJI}
+          </button>
         </div>
 
         {/* Nombre */}
@@ -121,6 +135,17 @@ export function FlavorModal({ open, onClose, onSaved, flavor }: FlavorModalProps
           </p>
         )}
 
+        {/* Stock mínimo */}
+        <Input
+          label="Stock mínimo (alerta)"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          value={minStock}
+          onChange={(e) => setMinStock(e.target.value)}
+          placeholder="10"
+        />
+
         {/* Color */}
         <div>
           <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Color del sabor</span>
@@ -133,6 +158,20 @@ export function FlavorModal({ open, onClose, onSaved, flavor }: FlavorModalProps
           />
         </div>
       </div>
+
+      {/* Selector de emoji en modal */}
+      <Modal
+        open={emojiOpen}
+        onClose={() => setEmojiOpen(false)}
+        title="Elegir emoji"
+        footer={
+          <Button className="w-full" variant="mango" onClick={() => setEmojiOpen(false)}>
+            Listo
+          </Button>
+        }
+      >
+        <EmojiPicker value={emoji} onChange={setEmoji} />
+      </Modal>
     </Modal>
   );
 }

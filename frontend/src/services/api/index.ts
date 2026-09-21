@@ -147,6 +147,18 @@ export const flavorsApi = {
     await localDb.flavors.put(flavor);
     return flavor;
   },
+
+  /**
+   * Elimina un sabor. El servidor lo borra físicamente si no tiene
+   * referencias, o lo archiva si conserva historial (archived = true).
+   */
+  async delete(id: string): Promise<{ flavor: Flavor; archived: boolean }> {
+    const result = await apiRequest<{ flavor: Flavor; archived: boolean }>(`/flavors/${id}`, {
+      method: "DELETE",
+    });
+    await localDb.flavors.delete(id);
+    return result;
+  },
 };
 
 export const suppliersApi = {

@@ -1,22 +1,23 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
 import { flavorsApi } from "@/services/api";
 import { formatMoney } from "@/lib/formatting/currency";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 import { useToast } from "@/components/ui/Toast";
-import { IconPlus, IconEdit } from "@/components/ui/icons";
+import { IconEdit, IconPlus, IconTrash } from "@/components/ui/icons";
 import { FlavorModal } from "./FlavorModal";
 import type { Flavor } from "@/types";
 
 // ---------------------------------------------------------------------
-// Página de gestión de sabores: crear, editar y desactivar sabores
-// con emoji, nombre, precios de referencia y color.
+// Página de gestión de sabores en una grilla compacta para ver muchos
+// sabores sin scroll. Separa activos de inactivos/archivados y agrupa
+// las acciones (editar, activar/desactivar, eliminar) en un menú.
 // ---------------------------------------------------------------------
 
 export function FlavorsPage() {
@@ -27,7 +28,17 @@ export function FlavorsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingFlavor, setEditingFlavor] = useState<Flavor | null>(null);
   const [toggleModal, setToggleModal] = useState<Flavor | null>(null);
+  const [deleteModal, setDeleteModal] = useState<Flavor | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const { active, inactive } = useMemo(() => {
+    const all = flavors ?? [];
+    return {
+      active: all.filter((f) => f.active),
+      inactive: all.filter((f) => !f.active),
+    };
+  }, [flavors]);
 
   function handleCreate() {
     setEditingFlavor(null);
@@ -53,15 +64,82 @@ export function FlavorsPage() {
     }
   }
 
+  async function handleDeleteFlavor(flavor: Flavor) {
+    setDeleting(true);
+    try {
+      const result = await flavorsApi.delete(flavor.id);
+      toast(
+        result.archived
+          ? `"${flavor.name}" archivado (conserva su historial)`
+          : `"${flavor.name}" eliminado`,
+      );
+      setDeleteModal(null);
+      reload();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "No se pudo eliminar el sabor", "error");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function renderFlavor(flavor: Flavor) {
+    const prices =
+      flavor.costPrice != null && flavor.salePrice != null
+        ? `C ${formatMoney(flavor.costPrice, currency)} · V ${formatMoney(flavor.salePrice, currency)}`
+        : flavor.costPrice != null
+          ? `Costo ${formatMoney(flavor.costPrice, currency)}`
+          : flavor.salePrice != null
+            ? `Venta ${formatMoney(flavor.salePrice, currency)}`
+            : "Sin precios";
+    return (
+      <li
+        key={flavor.id}
+        className="relative flex flex-col items-center rounded-2xl bg-white p-3 pt-2 text-center ring-1 ring-cocoa/5"
+      >
+        <div className="absolute right-0.5 top-0.5">
+          <ActionMenu
+            label={`Acciones de ${flavor.name}`}
+            items={[
+              {
+                label: "Editar",
+                icon: <IconEdit className="h-4 w-4" />,
+                onClick: () => handleEdit(flavor),
+              },
+              {
+                label: flavor.active ? "Desactivar" : "Activar",
+                onClick: () => setToggleModal(flavor),
+              },
+              {
+                label: "Eliminar",
+                icon: <IconTrash className="h-4 w-4" />,
+                danger: true,
+                onClick: () => setDeleteModal(flavor),
+              },
+            ]}
+          />
+        </div>
+        <span
+          className="mt-2 flex h-12 w-12 items-center justify-center rounded-2xl text-2xl"
+          style={{ backgroundColor: flavor.color ? `${flavor.color}20` : undefined }}
+          aria-hidden="true"
+        >
+          {flavor.emoji ?? "🍦"}
+        </span>
+        <p className="mt-1 w-full truncate font-extrabold text-cocoa">{flavor.name}</p>
+        <p className="w-full truncate text-[11px] font-semibold text-cocoa-soft">{prices}</p>
+      </li>
+    );
+  }
+
   if (loading) return <PageLoader label="Cargando sabores…" />;
 
   return (
-    <div className="animate-fade-up space-y-5">
+    <div className="animate-fade-up space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-cocoa">Sabores 🍦</h1>
           <p className="text-sm font-semibold text-cocoa-soft">
-            {flavors ? `${flavors.length} sabores en tu catálogo` : "Cargando…"}
+            {flavors ? `${active.length} activos · ${inactive.length} archivados` : "Cargando…"}
           </p>
         </div>
         <Button onClick={handleCreate}>
@@ -72,67 +150,36 @@ export function FlavorsPage() {
       </div>
 
       {flavors && flavors.length > 0 ? (
-        <ul className="space-y-3">
-          {flavors.map((flavor) => (
-            <li key={flavor.id}>
-              <Card className="transition-shadow hover:shadow-card">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="flex h-12 w-12 items-center justify-center rounded-2xl text-2xl"
-                      style={{ backgroundColor: flavor.color ? `${flavor.color}20` : undefined }}
-                      aria-hidden="true"
-                    >
-                      {flavor.emoji ?? "🍦"}
-                    </span>
-                    <div>
-                      <p className="font-extrabold text-cocoa">
-                        {flavor.name}
-                        {!flavor.active && (
-                          <Badge tone="gray" className="ml-2">inactivo</Badge>
-                        )}
-                      </p>
-                      <div className="flex gap-3 text-xs font-semibold text-cocoa-soft">
-                        {flavor.costPrice != null && (
-                          <span>Costo: {formatMoney(flavor.costPrice, currency)}</span>
-                        )}
-                        {flavor.salePrice != null && (
-                          <span>Venta: {formatMoney(flavor.salePrice, currency)}</span>
-                        )}
-                        {flavor.costPrice != null && flavor.salePrice != null && (
-                          <span className="text-turquoise-deep">
-                            +{formatMoney(flavor.salePrice - flavor.costPrice, currency)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(flavor)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-cocoa-soft hover:bg-cocoa/5"
-                      aria-label={`Editar ${flavor.name}`}
-                    >
-                      <IconEdit className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setToggleModal(flavor)}
-                      className={`min-h-10 rounded-full px-3 text-xs font-bold transition-colors ${
-                        flavor.active
-                          ? "bg-strawberry/10 text-strawberry"
-                          : "bg-kiwi/15 text-kiwi"
-                      }`}
-                    >
-                      {flavor.active ? "Desactivar" : "Activar"}
-                    </button>
-                  </div>
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-6">
+          <section>
+            <div className="mb-2 flex items-center gap-2">
+              <h2 className="text-sm font-bold text-cocoa-soft">Activos</h2>
+              <Badge tone="green">{active.length}</Badge>
+            </div>
+            {active.length > 0 ? (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {active.map(renderFlavor)}
+              </ul>
+            ) : (
+              <EmptyState emoji="🍦" title="Sin sabores activos" description="Crea o activa un sabor." />
+            )}
+          </section>
+
+          {inactive.length > 0 && (
+            <section>
+              <div className="mb-2 flex items-center gap-2">
+                <h2 className="text-sm font-bold text-cocoa-soft">Inactivos / archivados</h2>
+                <Badge tone="gray">{inactive.length}</Badge>
+              </div>
+              <p className="mb-2 text-xs font-semibold text-cocoa-soft">
+                No aparecen en nuevas ventas ni compras, pero su historial se conserva.
+              </p>
+              <ul className="grid grid-cols-2 gap-3 opacity-80 sm:grid-cols-3 lg:grid-cols-4">
+                {inactive.map(renderFlavor)}
+              </ul>
+            </section>
+          )}
+        </div>
       ) : (
         <EmptyState
           emoji="🍦"
@@ -180,6 +227,34 @@ export function FlavorsPage() {
           {toggleModal?.active
             ? `¿Desactivar "${toggleModal?.name}"? No aparecerá en las listas de ventas ni compras.`
             : `¿Reactivar "${toggleModal?.name}"? Volverá a estar disponible.`}
+        </p>
+      </Modal>
+
+      {/* Modal confirmar eliminar */}
+      <Modal
+        open={Boolean(deleteModal)}
+        onClose={() => setDeleteModal(null)}
+        title="Eliminar sabor"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setDeleteModal(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={() => deleteModal && handleDeleteFlavor(deleteModal)}
+              disabled={deleting}
+            >
+              {deleting ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-cocoa">
+          {deleteModal?.active
+            ? `¿Eliminar "${deleteModal?.name}"? Si conserva historial (ventas, compras o movimientos), se archivará para no romper los datos.`
+            : `¿Eliminar "${deleteModal?.name}"? Es un sabor archivado; se borrará definitivamente.`}
         </p>
       </Modal>
     </div>
