@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
@@ -11,21 +11,31 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { EmojiPicker } from "@/components/ui/EmojiPicker";
+import { DraftBanner } from "@/components/ui/DraftBanner";
+import { clearDraft, draftKey, loadDraft, saveDraft } from "@/lib/drafts";
 import { IconArrowLeft, IconCheck, IconPlus } from "@/components/ui/icons";
 import { cn } from "@/lib/utils/cn";
 
 // ---------------------------------------------------------------------
 // Venta rápida: una sola pantalla para registrar en segundos.
 // Flujo: ubicación → sabores → cantidades → precio → total y ganancia
-// estimada → confirmar.
+// estimada → confirmar. Se guarda un borrador si el operador abandona.
 // ---------------------------------------------------------------------
 
 const QUICK_PRICES = [40, 50, 60];
 
+interface SaleDraft {
+  location: string;
+  customLocation: string;
+  quantities: Record<string, number>;
+  unitPrice: number;
+  customPrice: string;
+}
+
 export function NewSalePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { defaultHomePrice, currency } = useBusiness();
+  const { defaultHomePrice, currency, business } = useBusiness();
 
   const inventory = useAsync(() => inventoryApi.list(), []);
   const locations = useAsync(() => locationsApi.list(), []);
@@ -36,6 +46,38 @@ export function NewSalePage() {
   const [unitPrice, setUnitPrice] = useState<number>(defaultHomePrice);
   const [customPrice, setCustomPrice] = useState<string>("");
   const [saving, setSaving] = useState(false);
+
+  // Borrador: recupera uno guardado o crea uno nuevo mientras se edita.
+  const draftKeySale = draftKey(business?.id, "sale");
+  const [draftNotice, setDraftNotice] = useState<SaleDraft | null>(null);
+
+  useEffect(() => {
+    setDraftNotice(loadDraft<SaleDraft>(draftKeySale));
+  }, [draftKeySale]);
+
+  useEffect(() => {
+    if (draftNotice) return;
+    const t = setTimeout(() => {
+      saveDraft(draftKeySale, { location, customLocation, quantities, unitPrice, customPrice });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [draftKeySale, location, customLocation, quantities, unitPrice, customPrice, draftNotice]);
+
+  function handleContinueDraft() {
+    if (!draftNotice) return;
+    setLocation(draftNotice.location ?? "");
+    setCustomLocation(draftNotice.customLocation ?? "");
+    setQuantities(draftNotice.quantities ?? {});
+    setUnitPrice(draftNotice.unitPrice ?? defaultHomePrice);
+    setCustomPrice(draftNotice.customPrice ?? "");
+    clearDraft(draftKeySale);
+    setDraftNotice(null);
+  }
+
+  function handleDiscardDraft() {
+    clearDraft(draftKeySale);
+    setDraftNotice(null);
+  }
 
   // Modal crear sabor rápido
   const [flavorModalOpen, setFlavorModalOpen] = useState(false);
@@ -123,6 +165,7 @@ export function NewSalePage() {
           unitPrice: effectivePrice,
         })),
       });
+      clearDraft(draftKeySale);
       toast(`Venta registrada: ${formatMoney(sale.total, currency)}`);
       navigate("/sales");
     } catch (err) {
@@ -180,6 +223,10 @@ export function NewSalePage() {
           <p className="text-sm font-semibold text-cocoa-soft">Elige, suma y guarda</p>
         </div>
       </div>
+
+      {draftNotice ? (
+        <DraftBanner onContinue={handleContinueDraft} onDiscard={handleDiscardDraft} />
+      ) : null}
 
       {/* Ubicación */}
       <div>
