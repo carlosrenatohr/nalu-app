@@ -76,6 +76,7 @@ export function NewSalePage() {
 
   const profit = total - estimatedCost;
   const totalUnits = selectedLines.reduce((acc, l) => acc + l.qty, 0);
+  const unitsText = totalUnits === 1 ? "1 paleta" : `${totalUnits} paletas`;
 
   function setQty(flavorId: string, qty: number) {
     setQuantities((prev) => ({ ...prev, [flavorId]: qty }));
@@ -310,7 +311,13 @@ export function NewSalePage() {
       {/* Resumen */}
       <div className="rounded-[1.25rem] bg-gradient-to-br from-turquoise to-turquoise-deep p-5 text-white shadow-pop">
         <div className="flex items-center justify-between text-sm font-bold text-white/85">
-          <span>{totalUnits} paletas</span>
+          {totalUnits > 1 ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-mango px-2.5 py-0.5 text-xs font-extrabold text-cocoa shadow-soft">
+              {unitsText}
+            </span>
+          ) : (
+            <span>{unitsText}</span>
+          )}
           <span>Costo est. {formatMoney(estimatedCost, currency)}</span>
         </div>
         <div className="mt-1 flex items-end justify-between">

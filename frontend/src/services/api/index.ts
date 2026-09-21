@@ -12,7 +12,6 @@ import type {
   FlavorInventoryDetail,
   InventoryMovement,
   Location,
-  MovementType,
   NewMovementInput,
   NewPurchaseInput,
   NewSaleInput,
@@ -294,11 +293,16 @@ export const inventoryApi = {
 
   async registerMovement(input: NewMovementInput): Promise<InventoryMovement> {
     const payload = { ...input, id: newId() };
+    const isIn =
+      input.movementType === "PURCHASE" ||
+      input.movementType === "RETURN" ||
+      (input.movementType === "ADJUSTMENT" && input.direction === "in");
+    const signedQuantity = isIn ? input.quantity : -input.quantity;
     if (!isOnline()) {
       const movement: InventoryMovement = {
         ...payload,
         businessId: "",
-        quantity: isInbound(input.movementType) ? input.quantity : -input.quantity,
+        quantity: signedQuantity,
         unitCost: null,
         referenceId: null,
         notes: payload.notes ?? null,
@@ -328,10 +332,6 @@ export const inventoryApi = {
     }
   },
 };
-
-function isInbound(type: MovementType): boolean {
-  return type === "PURCHASE" || type === "RETURN";
-}
 
 export const salesApi = {
   async list(from?: string, to?: string): Promise<Sale[]> {

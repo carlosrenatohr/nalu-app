@@ -55,6 +55,8 @@ export function InventoryDetailPage() {
     { label: "Regaladas", value: summary.gifted, tone: "gray" as const },
     { label: "Consumo propio", value: summary.personalUse, tone: "gray" as const },
     { label: "Pérdidas", value: summary.lost, tone: "red" as const },
+    { label: "Ajustadas", value: summary.adjusted, tone: "gray" as const },
+    { label: "Devueltas", value: summary.returned, tone: "green" as const },
   ];
 
   return (

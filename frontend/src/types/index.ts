@@ -197,6 +197,8 @@ export interface NewMovementInput {
   quantity: number;
   date: string;
   notes?: string;
+  /** Solo para `ADJUSTMENT`: "in" aumenta, "out" (default) disminuye. */
+  direction?: "in" | "out";
 }
 
 export interface ApiErrorBody {
