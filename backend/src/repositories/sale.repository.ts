@@ -109,12 +109,9 @@ export function createSaleRepository(db: DrizzleDb) {
       }));
     },
 
-    async delete(businessId: string, id: string): Promise<Sale | null> {
-      const sale = await this.getById(businessId, id);
-      if (!sale) return null;
-
-      // Eliminar movimientos de inventario associados a esta venta
-      await db
+    async deleteStatements(businessId: string, id: string): Promise<unknown[]> {
+      // Eliminar movimientos de inventario asociados a esta venta
+      const delMovements = db
         .delete(inventoryMovements)
         .where(
           and(
@@ -124,17 +121,17 @@ export function createSaleRepository(db: DrizzleDb) {
         );
 
       // Eliminar items (ON DELETE CASCADE se encarga, pero lo hacemos explícito)
-      await db.delete(saleItems).where(eq(saleItems.saleId, id));
+      const delItems = db.delete(saleItems).where(eq(saleItems.saleId, id));
 
       // Eliminar la venta
-      await db
+      const delSale = db
         .delete(sales)
         .where(and(eq(sales.businessId, businessId), eq(sales.id, id)));
 
-      return sale;
+      return [delMovements, delItems, delSale];
     },
 
-    async update(
+    updateStatements(
       businessId: string,
       id: string,
       input: {
@@ -143,7 +140,7 @@ export function createSaleRepository(db: DrizzleDb) {
         notes?: string | null;
         total?: number;
       },
-    ): Promise<Sale | null> {
+    ): unknown {
       const updateData: Record<string, unknown> = {
         updatedAt: new Date().toISOString(),
       };
@@ -152,17 +149,15 @@ export function createSaleRepository(db: DrizzleDb) {
       if (input.notes !== undefined) updateData.notes = input.notes;
       if (input.total !== undefined) updateData.total = input.total;
 
-      await db
+      return db
         .update(sales)
         .set(updateData)
         .where(and(eq(sales.businessId, businessId), eq(sales.id, id)));
-
-      return this.getById(businessId, id);
     },
 
-    async deleteItems(businessId: string, saleId: string): Promise<void> {
+    async deleteItemsStatements(businessId: string, saleId: string): Promise<unknown[]> {
       // Eliminar movimientos de inventario de esta venta
-      await db
+      const delMovements = db
         .delete(inventoryMovements)
         .where(
           and(
@@ -172,25 +167,31 @@ export function createSaleRepository(db: DrizzleDb) {
         );
 
       // Eliminar items de la venta
-      await db.delete(saleItems).where(eq(saleItems.saleId, saleId));
+      const delItems = db.delete(saleItems).where(eq(saleItems.saleId, saleId));
+
+      return [delMovements, delItems];
     },
 
-    async insertItems(businessId: string, saleId: string, items: NewSaleItem[]): Promise<void> {
-      if (items.length === 0) return;
-      await db.insert(saleItems).values(
-        items.map((it) => ({
-          id: it.id,
-          saleId: it.saleId,
-          flavorId: it.flavorId,
-          quantity: it.quantity,
-          unitPrice: it.unitPrice,
-          unitCostSnapshot: it.unitCostSnapshot,
-          subtotal: it.subtotal,
-        })),
-      );
+    async insertItemsStatements(businessId: string, saleId: string, items: NewSaleItem[]): Promise<unknown[]> {
+      void businessId;
+      void saleId;
+      if (items.length === 0) return [];
+      return [
+        db.insert(saleItems).values(
+          items.map((it) => ({
+            id: it.id,
+            saleId: it.saleId,
+            flavorId: it.flavorId,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice,
+            unitCostSnapshot: it.unitCostSnapshot,
+            subtotal: it.subtotal,
+          })),
+        ),
+      ];
     },
 
-    async insertMovements(
+    async insertMovementsStatements(
       businessId: string,
       movements: {
         id: string;
@@ -202,22 +203,24 @@ export function createSaleRepository(db: DrizzleDb) {
         date: string;
         notes: string | null;
       }[],
-    ): Promise<void> {
-      if (movements.length === 0) return;
-      await db.insert(inventoryMovements).values(
-        movements.map((m) => ({
-          id: m.id,
-          businessId,
-          flavorId: m.flavorId,
-          movementType: m.movementType,
-          quantity: m.quantity,
-          unitCost: m.unitCost,
-          referenceId: m.referenceId,
-          date: m.date,
-          notes: m.notes,
-          createdAt: new Date().toISOString(),
-        })),
-      );
+    ): Promise<unknown[]> {
+      if (movements.length === 0) return [];
+      return [
+        db.insert(inventoryMovements).values(
+          movements.map((m) => ({
+            id: m.id,
+            businessId,
+            flavorId: m.flavorId,
+            movementType: m.movementType,
+            quantity: m.quantity,
+            unitCost: m.unitCost,
+            referenceId: m.referenceId,
+            date: m.date,
+            notes: m.notes,
+            createdAt: new Date().toISOString(),
+          })),
+        ),
+      ];
     },
   };
 }

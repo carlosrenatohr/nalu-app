@@ -1,5 +1,6 @@
 import type { DrizzleDb } from "../db/drizzle-types";
-import { purchases, purchaseItems, inventoryMovements } from "../db/schema";
+import { purchases } from "../db/schema";
+import { runAtomic } from "../db/atomic";
 import { calculateLineSubtotal, calculateSaleCost } from "../domain/calculations/sales";
 import type { Purchase, PurchaseItem } from "../domain/types";
 import { createFlavorRepository } from "../repositories/flavor.repository";
@@ -98,8 +99,8 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
       date: input.purchaseDate,
       notes: null,
     }));
-    await db.transaction(async (tx: DrizzleDb) => {
-      await tx.insert(purchases).values({
+    await runAtomic(db, [
+      db.insert(purchases).values({
         id: purchase.id,
         businessId: purchase.businessId,
         supplierId: purchase.supplierId,
@@ -108,36 +109,10 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
         totalCost: purchase.totalCost,
         createdAt: purchase.createdAt,
         updatedAt: purchase.updatedAt,
-      });
-      if (items.length > 0) {
-        await tx.insert(purchaseItems).values(
-          items.map((it) => ({
-            id: it.id,
-            purchaseId: it.purchaseId,
-            flavorId: it.flavorId,
-            quantity: it.quantity,
-            unitCost: it.unitCost,
-            subtotal: it.subtotal,
-          })),
-        );
-      }
-      if (movements.length > 0) {
-        await tx.insert(inventoryMovements).values(
-          movements.map((m) => ({
-            id: m.id,
-            businessId: m.businessId,
-            flavorId: m.flavorId,
-            movementType: m.movementType,
-            quantity: m.quantity,
-            unitCost: m.unitCost,
-            referenceId: m.referenceId,
-            date: m.date,
-            notes: m.notes,
-            createdAt: new Date().toISOString(),
-          })),
-        );
-      }
-    });
+      }),
+      ...(await purchaseRepo.insertItemsStatements(businessId, purchaseId, items)),
+      ...(await purchaseRepo.insertMovementsStatements(businessId, movements)),
+    ]);
     return purchase;
   }
 
@@ -229,18 +204,19 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
       }));
 
       // Transacción atómica: eliminar viejos ítems/movimientos, crear nuevos, actualizar compra
-      const updated = await db.transaction(async () => {
-        await purchaseRepo.deleteItems(businessId, id);
-        await purchaseRepo.insertItems(businessId, id, items);
-        await purchaseRepo.insertMovements(businessId, movements);
-        return purchaseRepo.update(businessId, id, {
+      await runAtomic(db, [
+        ...(await purchaseRepo.deleteItemsStatements(businessId, id)),
+        ...(await purchaseRepo.insertItemsStatements(businessId, id, items)),
+        ...(await purchaseRepo.insertMovementsStatements(businessId, movements)),
+        purchaseRepo.updateStatements(businessId, id, {
           supplierId,
           purchaseDate: input.purchaseDate,
           notes: input.notes,
           totalCost,
-        });
-      });
+        }),
+      ]);
 
+      const updated = await purchaseRepo.getById(businessId, id);
       if (!updated) {
         throw ApiError.notFound("La compra no existe.");
       }
@@ -254,11 +230,14 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
         throw ApiError.notFound("El proveedor no existe.");
       }
     }
-    const updated = await purchaseRepo.update(businessId, id, {
-      supplierId: input.supplierId,
-      purchaseDate: input.purchaseDate,
-      notes: input.notes,
-    });
+    await runAtomic(db, [
+      purchaseRepo.updateStatements(businessId, id, {
+        supplierId: input.supplierId,
+        purchaseDate: input.purchaseDate,
+        notes: input.notes,
+      }),
+    ]);
+    const updated = await purchaseRepo.getById(businessId, id);
 
     if (!updated) {
       throw ApiError.notFound("La compra no existe.");
@@ -298,15 +277,9 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
       }
     }
 
-    const result = await db.transaction(async () => {
-      const deleted = await purchaseRepo.delete(businessId, id);
-      if (!deleted) {
-        throw ApiError.notFound("La compra no existe.");
-      }
-      return deleted;
-    });
+    await runAtomic(db, await purchaseRepo.deleteStatements(businessId, id));
 
-    return result;
+    return existing;
   }
 
   return { create, list, getById, update, delete: deletePurchase };
