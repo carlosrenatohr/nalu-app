@@ -3,6 +3,28 @@
 Todos los cambios notables de Nalu.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [1.3.0] - 2026-09-20
+
+### Added
+- Compras: edición y eliminación con integridad de inventario (bloqueo 409 si el stock quedaría negativo) y menú de acciones (Editar / Eliminar).
+- Borradores (drafts) de ventas y compras con recuperación (`Continuar` / `Descartar`).
+- Sabores: grilla compacta, selector de emoji en modal (default 🍧), campo `minStock` editable, y eliminación/archivado según referencias históricas.
+- Ajuste de stock bidireccional (±) con motivo obligatorio (movimiento firmado).
+- Contadores con cantidad manual (Stepper editable) y aviso visual al registrar ventas de más de una unidad.
+- Detalle de cambios pendientes de sincronización con descarte (revert) seguro.
+- Sincronización offline de edición/eliminación de ventas y sabores (verbos `update`/`delete` en el outbox).
+
+### Fixed
+- Costo histórico: al editar una venta, las líneas sin cambio de cantidad conservan su `unit_cost_snapshot` original.
+- Robustez de sincronización: reintentos con backoff exponencial y reintento automático al volver online.
+- Consistencia de salida/devolución en el registro de movimientos; Totales de inventario muestran ajustadas y devueltas.
+- Sabores inactivos bloqueados en nuevas ventas/compras (`FLAVOR_INACTIVE`) sin romper el historial.
+- Touch targets ≥ 44px (menú de acciones de ventas); typo en el modal de confirmación.
+
+### Changed
+- Sync ahora soporta `verb: create|update|delete` con `opId` propio para update/delete (deduplicación segura).
+- `e2e/playwright.config.ts`: `globalTimeout` para evitar colgarse en CI.
+
 ## [1.1.0] - 2026-08-17
 
 ### Added
