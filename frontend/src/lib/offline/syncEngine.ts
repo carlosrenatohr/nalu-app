@@ -1,4 +1,4 @@
-import { localDb } from "./db";
+import { localDb, type OutboxOp } from "./db";
 import { countPending, listPending, markFailed, markSynced } from "./outbox";
 import { isOnline, subscribeNetwork } from "./network";
 import { syncOperationsApi, refreshInventoryCache } from "@/services/api";
@@ -8,7 +8,27 @@ import type { SyncOperationResult } from "@/types";
 // Motor de sincronización offline-first.
 // Flujo: acción → guardado local → outbox → (vuelve la conexión) →
 // sync → Express/D1 → marcado como sincronizado.
+//
+// Robustez: reintentos con backoff exponencial (las operaciones fallidas
+// no se reenvían en bucle, esperan una ventana y se reintentan solas) y
+// reintento programado tras un error de red.
 // ---------------------------------------------------------------------
+
+const BACKOFF_BASE_MS = 2_000;
+const BACKOFF_MAX_MS = 60_000;
+
+function backoffDelay(attempts: number): number {
+  return Math.min(BACKOFF_BASE_MS * 2 ** attempts, BACKOFF_MAX_MS);
+}
+
+function msUntilRetry(op: OutboxOp): number {
+  if (op.status !== "failed" || !op.lastAttemptAt) return 0;
+  return Math.max(0, backoffDelay(op.attempts) - (Date.now() - op.lastAttemptAt));
+}
+
+function isEligible(op: OutboxOp): boolean {
+  return msUntilRetry(op) <= 0;
+}
 
 export interface SyncState {
   online: boolean;
@@ -61,9 +81,16 @@ class SyncEngine {
   async sync(): Promise<void> {
     if (this.state.syncing || !this.state.online) return;
     const pending = await listPending();
-    if (pending.length === 0) {
-      this.state = { ...this.state, syncing: false };
+    // Solo reenviamos las operaciones cuyo backoff ya expiró.
+    const eligible = pending.filter(isEligible);
+
+    if (eligible.length === 0) {
+      this.state = { ...this.state, syncing: false, lastError: null };
       this.emit();
+      // Hay pendientes pero todas en backoff → reintentamos pronto.
+      if (pending.length > 0) {
+        this.requestSync(Math.max(Math.min(...pending.map(msUntilRetry)), 1000));
+      }
       return;
     }
 
@@ -72,16 +99,19 @@ class SyncEngine {
 
     try {
       const { results } = await syncOperationsApi(
-        pending.map((op) => ({ type: op.type, payload: op.payload })),
+        eligible.map((op) => ({ type: op.type, payload: op.payload })),
       );
-      await this.applyResults(results, pending);
+      await this.applyResults(results, eligible);
     } catch (err) {
+      // Error de red a mitad de sincronización: no perdemos nada (los ops
+      // siguen en el outbox) y reintentamos con backoff.
       this.state = {
         ...this.state,
         syncing: false,
         lastError: err instanceof Error ? err.message : "Error de sincronización",
       };
       this.emit();
+      this.requestSync(backoffDelay(1));
       return;
     }
 
@@ -94,12 +124,18 @@ class SyncEngine {
       lastSync: new Date().toISOString(),
     };
     await this.refreshPending();
+
+    // Reintento automático si quedaron operaciones por sincronizar.
+    const remaining = await listPending();
+    if (remaining.length > 0) {
+      this.requestSync(Math.max(Math.min(...remaining.map(msUntilRetry)), 1000));
+    }
     this.emit();
   }
 
   private async applyResults(
     results: SyncOperationResult[],
-    pending: Awaited<ReturnType<typeof listPending>>,
+    pending: OutboxOp[],
   ): Promise<void> {
     for (const result of results) {
       const op = pending.find((o) => o.opId === result.opId);

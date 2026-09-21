@@ -32,6 +32,8 @@ export interface OutboxOp {
   status: OutboxStatus;
   attempts: number;
   lastError?: string;
+  /** Timestamp del último intento fallido (para backoff de reintentos). */
+  lastAttemptAt?: number;
   createdAt: string;
 }
 
