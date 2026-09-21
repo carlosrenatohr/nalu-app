@@ -222,6 +222,15 @@ export const suppliersApi = {
     await localDb.suppliers.put(supplier);
     return supplier;
   },
+
+  /** Elimina un proveedor: lo borra físicamente si no tiene compras, o lo archiva si conserva historial. */
+  async delete(id: string): Promise<{ supplier: Supplier; archived: boolean }> {
+    const result = await apiRequest<{ supplier: Supplier; archived: boolean }>(`/suppliers/${id}`, {
+      method: "DELETE",
+    });
+    await localDb.suppliers.delete(id);
+    return result;
+  },
 };
 
 export const locationsApi = {
@@ -458,6 +467,7 @@ async function createLocalSale(payload: NewSaleInput & { id: string }): Promise<
     location: payload.location,
     notes: payload.notes ?? null,
     total,
+    paymentType: payload.paymentType ?? "cash",
     profit: total - items.reduce((acc, i) => acc + i.quantity * i.unitCostSnapshot, 0),
     items,
     createdAt: new Date().toISOString(),
@@ -510,6 +520,7 @@ async function updateLocalSale(id: string, input: Partial<NewSaleInput>): Promis
       ...(input.saleDate !== undefined ? { saleDate: input.saleDate } : {}),
       ...(input.location !== undefined ? { location: input.location } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      ...(input.paymentType !== undefined ? { paymentType: input.paymentType } : {}),
       items,
       total,
       profit: total - items.reduce((acc, i) => acc + i.quantity * i.unitCostSnapshot, 0),
@@ -521,6 +532,7 @@ async function updateLocalSale(id: string, input: Partial<NewSaleInput>): Promis
       ...(input.saleDate !== undefined ? { saleDate: input.saleDate } : {}),
       ...(input.location !== undefined ? { location: input.location } : {}),
       ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      ...(input.paymentType !== undefined ? { paymentType: input.paymentType } : {}),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -557,6 +569,7 @@ export const purchasesApi = {
         businessId: "",
         notes: input.notes ?? null,
         totalCost: items.reduce((acc, i) => acc + i.subtotal, 0),
+        paymentType: payload.paymentType ?? "cash",
         items,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

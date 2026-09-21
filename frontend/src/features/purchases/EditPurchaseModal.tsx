@@ -9,12 +9,13 @@ import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { useBusiness } from "@/hooks/useBusiness";
 import { useAsync } from "@/hooks/useAsync";
-import type { Purchase } from "@/types";
+import { PaymentSelect } from "@/components/ui/PaymentSelect";
+import type { PaymentType, Purchase } from "@/types";
 
 // ---------------------------------------------------------------------
-// Modal para editar una compra existente: proveedor, fecha, notas y
-// líneas por sabor (cantidad + costo unitario). El total lo recalcula
-// el servidor; aquí se muestra una estimación para la UX.
+// Modal para editar una compra existente: proveedor, fecha, tipo de pago,
+// notas y líneas por sabor (cantidad + costo unitario). El total lo
+// recalcula el servidor; aquí se muestra una estimación para la UX.
 // ---------------------------------------------------------------------
 
 interface Line {
@@ -41,6 +42,7 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
   const [date, setDate] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [notes, setNotes] = useState("");
+  const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [saving, setSaving] = useState(false);
 
   // Inicializar desde la compra existente
@@ -49,6 +51,7 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
       setSupplierId(purchase.supplierId);
       setDate(purchase.purchaseDate);
       setNotes(purchase.notes ?? "");
+      setPaymentType(purchase.paymentType ?? "cash");
       const grouped = new Map<string, { quantity: number; unitCost: number }>();
       for (const it of purchase.items) {
         const cur = grouped.get(it.flavorId);
@@ -96,6 +99,7 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
         purchaseDate: date,
         supplierId,
         notes: notes.trim() || undefined,
+        paymentType,
         items: lines
           .filter((l) => l.quantity > 0)
           .map((l) => ({ flavorId: l.flavorId, quantity: l.quantity, unitCost: l.unitCost })),
@@ -203,6 +207,9 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
           placeholder="Ej. entrega, condiciones…"
           maxLength={500}
         />
+
+        {/* Tipo de pago */}
+        <PaymentSelect value={paymentType} onChange={setPaymentType} />
 
         <div className="rounded-[1.25rem] bg-gradient-to-br from-mango to-orange p-5 text-cocoa shadow-soft">
           <div className="flex items-center justify-between text-sm font-bold text-cocoa/75">

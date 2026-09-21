@@ -703,3 +703,50 @@ describe("Sincronización offline (outbox)", () => {
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
   });
 });
+
+describe("Tipo de pago y borrado de proveedores", () => {
+  it("compra guarda el tipo de pago (default cash)", async () => {
+    const res = await api("post", "/api/purchases")
+      .send({ supplierId: SUPPLIER_TROPICAL, items: [{ flavorId: FLAVORS.coco, quantity: 1, unitCost: 28 }] });
+    expect(res.status).toBe(201);
+    expect(res.body.data.paymentType).toBe("cash");
+  });
+
+  it("compra acepta un tipo de pago distinto", async () => {
+    const res = await api("post", "/api/purchases")
+      .send({ supplierId: SUPPLIER_TROPICAL, paymentType: "transfer", items: [{ flavorId: FLAVORS.coco, quantity: 1, unitCost: 28 }] });
+    expect(res.body.data.paymentType).toBe("transfer");
+  });
+
+  it("venta guarda el tipo de pago (default cash y custom)", async () => {
+    const d = await api("post", "/api/sales")
+      .send({ location: "Casa", items: [{ flavorId: FLAVORS.coco, quantity: 1, unitPrice: 60 }] });
+    expect(d.body.data.paymentType).toBe("cash");
+    const t = await api("post", "/api/sales")
+      .send({ location: "Casa", paymentType: "card", items: [{ flavorId: FLAVORS.coco, quantity: 1, unitPrice: 60 }] });
+    expect(t.body.data.paymentType).toBe("card");
+  });
+
+  it("lista de ventas incluye la ganancia calculada", async () => {
+    const res = await api("get", "/api/sales");
+    expect(res.status).toBe(200);
+    expect(res.body.data[0].profit).toBeGreaterThan(0);
+  });
+
+  it("elimina físicamente un proveedor sin compras vinculadas", async () => {
+    const created = await api("post", "/api/suppliers").send({ name: "Proveedor sin vínculo" });
+    const id = created.body.data.id;
+    const del = await api("delete", `/api/suppliers/${id}`);
+    expect(del.status).toBe(200);
+    expect(del.body.data.archived).toBe(false);
+    const list = await api("get", "/api/suppliers?includeInactive=true");
+    expect(list.body.data.find((s: { id: string }) => s.id === id)).toBeUndefined();
+  });
+
+  it("archiva un proveedor con compras vinculadas", async () => {
+    const del = await api("delete", `/api/suppliers/${SUPPLIER_TROPICAL}`);
+    expect(del.status).toBe(200);
+    expect(del.body.data.archived).toBe(true);
+    expect(del.body.data.supplier.active).toBe(false);
+  });
+});

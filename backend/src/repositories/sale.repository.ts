@@ -32,6 +32,7 @@ export function createSaleRepository(db: DrizzleDb) {
           location: sales.location,
           notes: sales.notes,
           total: sales.total,
+          paymentType: sales.paymentType,
           createdAt: sales.createdAt,
           updatedAt: sales.updatedAt,
         })
@@ -51,6 +52,7 @@ export function createSaleRepository(db: DrizzleDb) {
           location: sales.location,
           notes: sales.notes,
           total: sales.total,
+          paymentType: sales.paymentType,
           createdAt: sales.createdAt,
           updatedAt: sales.updatedAt,
         })
@@ -139,6 +141,7 @@ export function createSaleRepository(db: DrizzleDb) {
         location?: string;
         notes?: string | null;
         total?: number;
+        paymentType?: string;
       },
     ): unknown {
       const updateData: Record<string, unknown> = {
@@ -148,6 +151,7 @@ export function createSaleRepository(db: DrizzleDb) {
       if (input.location !== undefined) updateData.location = input.location;
       if (input.notes !== undefined) updateData.notes = input.notes;
       if (input.total !== undefined) updateData.total = input.total;
+      if (input.paymentType !== undefined) updateData.paymentType = input.paymentType;
 
       return db
         .update(sales)

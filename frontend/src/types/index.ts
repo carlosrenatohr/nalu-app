@@ -13,6 +13,9 @@ export type MovementType =
   | "ADJUSTMENT"
   | "RETURN";
 
+/** Forma de pago de una venta o compra. Fija por ahora; extensible a futuro. */
+export type PaymentType = "cash" | "transfer" | "card" | "other";
+
 export interface Business {
   id: string;
   name: string;
@@ -87,6 +90,7 @@ export interface Sale {
   location: string | null;
   notes: string | null;
   total: number;
+  paymentType: PaymentType;
   profit?: number;
   items: SaleItem[];
   createdAt: string;
@@ -111,6 +115,7 @@ export interface Purchase {
   purchaseDate: string;
   notes: string | null;
   totalCost: number;
+  paymentType: PaymentType;
   items: PurchaseItem[];
   createdAt: string;
   updatedAt: string;
@@ -181,6 +186,7 @@ export interface NewSaleInput {
   saleDate: string;
   location: string;
   notes?: string;
+  paymentType?: PaymentType;
   items: { flavorId: string; quantity: number; unitPrice: number }[];
 }
 
@@ -188,6 +194,7 @@ export interface NewPurchaseInput {
   purchaseDate: string;
   supplierId: string;
   notes?: string;
+  paymentType?: PaymentType;
   items: { flavorId: string; quantity: number; unitCost: number }[];
 }
 

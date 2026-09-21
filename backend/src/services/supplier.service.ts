@@ -50,5 +50,33 @@ export function createSupplierService(deps: { db: DrizzleDb; getBusinessId: () =
     return updated;
   }
 
-  return { create, list, update };
+  /**
+   * Elimina un proveedor de forma segura:
+   * - Sin compras vinculadas → lo borra físicamente.
+   * - Con compras históricas → lo archiva (active = false) para no romper datos.
+   * Devuelve el proveedor (eliminado o archivado) y si quedó archivado.
+   */
+  async function deleteSupplier(
+    id: string,
+  ): Promise<{ supplier: Supplier; archived: boolean }> {
+    const businessId = await getBusinessId();
+    const existing = await supplierRepo.getById(businessId, id);
+    if (!existing) {
+      throw ApiError.notFound("El proveedor no existe.");
+    }
+
+    const referenced = await supplierRepo.hasReferences(businessId, id);
+    if (!referenced) {
+      await supplierRepo.delete(businessId, id);
+      return { supplier: existing, archived: false };
+    }
+
+    const archived = await supplierRepo.update(businessId, id, { active: false });
+    if (!archived) {
+      throw ApiError.notFound("El proveedor no existe.");
+    }
+    return { supplier: archived, archived: true };
+  }
+
+  return { create, list, update, delete: deleteSupplier };
 }

@@ -1,6 +1,6 @@
 import { eq, and, asc } from "drizzle-orm";
 import type { DrizzleDb } from "../db/drizzle-types";
-import { suppliers } from "../db/schema";
+import { suppliers, purchases } from "../db/schema";
 import type { Supplier } from "../domain/types";
 
 interface SupplierRow {
@@ -88,6 +88,22 @@ export function createSupplierRepository(db: DrizzleDb) {
         .where(and(eq(suppliers.businessId, businessId), eq(suppliers.id, id)));
 
       return this.getById(businessId, id);
+    },
+
+    /** Indica si hay compras vinculadas a este proveedor (no se puede borrar físicamente). */
+    async hasReferences(businessId: string, id: string): Promise<boolean> {
+      const row = await db
+        .select({ id: purchases.id })
+        .from(purchases)
+        .where(and(eq(purchases.businessId, businessId), eq(purchases.supplierId, id)))
+        .limit(1);
+      return row.length > 0;
+    },
+
+    async delete(businessId: string, id: string): Promise<void> {
+      await db
+        .delete(suppliers)
+        .where(and(eq(suppliers.businessId, businessId), eq(suppliers.id, id)));
     },
   };
 }

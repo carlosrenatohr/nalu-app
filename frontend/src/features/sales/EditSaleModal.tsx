@@ -8,12 +8,13 @@ import { Stepper } from "@/components/ui/Stepper";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
+import { PaymentSelect } from "@/components/ui/PaymentSelect";
 import { cn } from "@/lib/utils/cn";
-import type { Sale } from "@/types";
+import type { PaymentType, Sale } from "@/types";
 
 // ---------------------------------------------------------------------
-// Modal para editar una venta existente: ubicación, sabores, cantidades
-// y precio. Recalcula el total y la ganancia estimada.
+// Modal para editar una venta existente: fecha, ubicación, sabores,
+// cantidades, precio y tipo de pago. Recalcula el total y la ganancia.
 // ---------------------------------------------------------------------
 
 const QUICK_PRICES = [40, 50, 60];
@@ -32,11 +33,13 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
   const inventory = useAsync(() => inventoryApi.list(), []);
   const locations = useAsync(() => locationsApi.list(), []);
 
+  const [saleDate, setSaleDate] = useState(sale?.saleDate ?? "");
   const [location, setLocation] = useState(sale?.location ?? "");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [unitPrice, setUnitPrice] = useState<number>(defaultHomePrice);
   const [customPrice, setCustomPrice] = useState<string>("");
   const [notes, setNotes] = useState(sale?.notes ?? "");
+  const [paymentType, setPaymentType] = useState<PaymentType>(sale?.paymentType ?? "cash");
   const [saving, setSaving] = useState(false);
 
   // Inicializar cantidades desde la venta existente
@@ -47,8 +50,10 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
         qtyMap[item.flavorId] = (qtyMap[item.flavorId] ?? 0) + item.quantity;
       }
       setQuantities(qtyMap);
+      setSaleDate(sale.saleDate);
       setLocation(sale.location ?? "");
       setNotes(sale.notes ?? "");
+      setPaymentType(sale.paymentType ?? "cash");
       // Usar el precio de la venta si todos los items tienen el mismo precio
       const prices = new Set(sale.items.map((i) => i.unitPrice));
       const firstItem = sale.items[0];
@@ -114,9 +119,10 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
     setSaving(true);
     try {
       await salesApi.update(sale.id, {
-        saleDate: sale.saleDate,
+        saleDate,
         location,
         notes: notes.trim() || undefined,
+        paymentType,
         items: selectedLines.map((l) => ({
           flavorId: l.flavorId,
           quantity: l.qty,
@@ -174,6 +180,20 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
             ))}
           </div>
         </div>
+
+        {/* Fecha */}
+        <div>
+          <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Fecha de la venta</span>
+          <input
+            type="date"
+            value={saleDate}
+            onChange={(e) => setSaleDate(e.target.value)}
+            className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+          />
+        </div>
+
+        {/* Tipo de pago */}
+        <PaymentSelect value={paymentType} onChange={setPaymentType} />
 
         {/* Sabores */}
         <div>

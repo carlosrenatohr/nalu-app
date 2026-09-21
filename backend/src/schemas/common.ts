@@ -18,3 +18,6 @@ export const positiveIntSchema = z
   .number("La cantidad debe ser un número.")
   .int("La cantidad debe ser un número entero.")
   .positive("La cantidad debe ser mayor que 0.");
+
+/** Forma de pago. Fija por ahora; se puede ampliar a futuro. */
+export const paymentTypeSchema = z.enum(["cash", "transfer", "card", "other"]);

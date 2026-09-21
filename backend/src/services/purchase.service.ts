@@ -2,7 +2,7 @@ import type { DrizzleDb } from "../db/drizzle-types";
 import { purchases } from "../db/schema";
 import { runAtomic } from "../db/atomic";
 import { calculateLineSubtotal, calculateSaleCost } from "../domain/calculations/sales";
-import type { Purchase, PurchaseItem } from "../domain/types";
+import type { Purchase, PurchaseItem, PaymentType } from "../domain/types";
 import { createFlavorRepository } from "../repositories/flavor.repository";
 import { createMovementRepository, type NewMovement } from "../repositories/movement.repository";
 import { createPurchaseRepository } from "../repositories/purchase.repository";
@@ -15,6 +15,7 @@ export interface CreatePurchaseInput {
   purchaseDate: string;
   supplierId: string;
   notes?: string;
+  paymentType?: PaymentType;
   items: { flavorId: string; quantity: number; unitCost: number }[];
 }
 
@@ -22,6 +23,7 @@ export interface UpdatePurchaseInput {
   purchaseDate?: string;
   supplierId?: string;
   notes?: string | null;
+  paymentType?: PaymentType;
   items?: { flavorId: string; quantity: number; unitCost: number }[];
 }
 
@@ -82,6 +84,7 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
       purchaseDate: input.purchaseDate,
       notes: input.notes?.trim() || null,
       totalCost,
+      paymentType: input.paymentType ?? "cash",
       items,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -107,6 +110,7 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
         purchaseDate: purchase.purchaseDate,
         notes: purchase.notes,
         totalCost: purchase.totalCost,
+        paymentType: purchase.paymentType,
         createdAt: purchase.createdAt,
         updatedAt: purchase.updatedAt,
       }),
@@ -213,6 +217,7 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
           purchaseDate: input.purchaseDate,
           notes: input.notes,
           totalCost,
+          paymentType: input.paymentType,
         }),
       ]);
 
@@ -235,6 +240,7 @@ export function createPurchaseService(deps: { db: DrizzleDb; getBusinessId: () =
         supplierId: input.supplierId,
         purchaseDate: input.purchaseDate,
         notes: input.notes,
+        paymentType: input.paymentType,
       }),
     ]);
     const updated = await purchaseRepo.getById(businessId, id);
