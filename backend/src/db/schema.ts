@@ -90,6 +90,7 @@ export const purchases = sqliteTable("purchases", {
   purchaseDate: text("purchase_date").notNull(),
   notes: text("notes"),
   totalCost: real("total_cost").notNull(),
+  paymentType: text("payment_type").notNull().default("cash"),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
@@ -120,6 +121,7 @@ export const sales = sqliteTable("sales", {
   location: text("location"),
   notes: text("notes"),
   total: real("total").notNull(),
+  paymentType: text("payment_type").notNull().default("cash"),
   createdAt: text("created_at")
     .notNull()
     .$defaultFn(() => new Date().toISOString()),

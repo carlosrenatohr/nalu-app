@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { todayISO } from "../utils/dates";
-import { isoDateSchema, moneySchema, optionalText, positiveIntSchema, uuidSchema } from "./common";
+import { isoDateSchema, moneySchema, optionalText, paymentTypeSchema, positiveIntSchema, uuidSchema } from "./common";
 
 export const purchaseItemSchema = z.object({
   flavorId: uuidSchema,
@@ -12,6 +12,7 @@ export const createPurchaseSchema = z.object({
   purchaseDate: isoDateSchema.default(todayISO),
   supplierId: uuidSchema,
   notes: optionalText(500),
+  paymentType: paymentTypeSchema.default("cash"),
   items: z.array(purchaseItemSchema).min(1, "Agrega al menos un sabor a la compra."),
 });
 
@@ -19,6 +20,7 @@ export const updatePurchaseSchema = z.object({
   purchaseDate: isoDateSchema.optional(),
   supplierId: uuidSchema.optional(),
   notes: optionalText(500),
+  paymentType: paymentTypeSchema.optional(),
   items: z.array(purchaseItemSchema).min(1, "Agrega al menos un sabor a la compra.").optional(),
 });
 

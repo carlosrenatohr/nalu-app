@@ -59,6 +59,7 @@ export function createApiRouter(deps: {
   router.get("/suppliers", suppliers.list);
   router.post("/suppliers", validate(createSupplierSchema), suppliers.create);
   router.patch("/suppliers/:id", validate(updateSupplierSchema), suppliers.update);
+  router.delete("/suppliers/:id", suppliers.delete);
 
   // Ventas
   const sales = createSaleControllers(services);

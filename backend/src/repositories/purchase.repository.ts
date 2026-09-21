@@ -32,6 +32,7 @@ export function createPurchaseRepository(db: DrizzleDb) {
           purchaseDate: purchases.purchaseDate,
           notes: purchases.notes,
           totalCost: purchases.totalCost,
+          paymentType: purchases.paymentType,
           createdAt: purchases.createdAt,
           updatedAt: purchases.updatedAt,
         })
@@ -53,6 +54,7 @@ export function createPurchaseRepository(db: DrizzleDb) {
           purchaseDate: purchases.purchaseDate,
           notes: purchases.notes,
           totalCost: purchases.totalCost,
+          paymentType: purchases.paymentType,
           createdAt: purchases.createdAt,
           updatedAt: purchases.updatedAt,
         })
@@ -140,6 +142,7 @@ export function createPurchaseRepository(db: DrizzleDb) {
         purchaseDate?: string;
         notes?: string | null;
         totalCost?: number;
+        paymentType?: string;
       },
     ): unknown {
       const updateData: Record<string, unknown> = {
@@ -149,6 +152,7 @@ export function createPurchaseRepository(db: DrizzleDb) {
       if (input.purchaseDate !== undefined) updateData.purchaseDate = input.purchaseDate;
       if (input.notes !== undefined) updateData.notes = input.notes;
       if (input.totalCost !== undefined) updateData.totalCost = input.totalCost;
+      if (input.paymentType !== undefined) updateData.paymentType = input.paymentType;
 
       return db
         .update(purchases)

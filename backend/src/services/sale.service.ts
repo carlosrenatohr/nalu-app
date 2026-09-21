@@ -6,7 +6,7 @@ import {
   calculateSaleProfit,
   calculateSaleTotal,
 } from "../domain/calculations/sales";
-import type { Sale, SaleItem } from "../domain/types";
+import type { Sale, SaleItem, PaymentType } from "../domain/types";
 import { createFlavorRepository } from "../repositories/flavor.repository";
 import { createMovementRepository, type NewMovement } from "../repositories/movement.repository";
 import { createSaleRepository } from "../repositories/sale.repository";
@@ -19,6 +19,7 @@ export interface CreateSaleInput {
   saleDate: string;
   location: string;
   notes?: string;
+  paymentType?: PaymentType;
   items: { flavorId: string; quantity: number; unitPrice: number }[];
 }
 
@@ -88,6 +89,7 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
       location: input.location,
       notes: input.notes?.trim() || null,
       total,
+      paymentType: input.paymentType ?? "cash",
       items,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -113,6 +115,7 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
         location: sale.location,
         notes: sale.notes,
         total: sale.total,
+        paymentType: sale.paymentType,
         createdAt: sale.createdAt,
         updatedAt: sale.updatedAt,
       }),
@@ -123,7 +126,8 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
   }
 
   async function list(from?: string, to?: string): Promise<Sale[]> {
-    return saleRepo.list(await getBusinessId(), from, to);
+    const salesList = await saleRepo.list(await getBusinessId(), from, to);
+    return salesList.map((sale) => ({ ...sale, profit: estimateProfit(sale) }));
   }
 
   async function getById(id: string): Promise<Sale | null> {
@@ -148,6 +152,7 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
       saleDate?: string;
       location?: string;
       notes?: string | null;
+      paymentType?: PaymentType;
       items?: { flavorId: string; quantity: number; unitPrice: number }[];
     },
   ): Promise<Sale> {
@@ -255,6 +260,7 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
           location: input.location,
           notes: input.notes,
           total,
+          paymentType: input.paymentType,
         }),
       ]);
 
@@ -271,6 +277,7 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
         saleDate: input.saleDate,
         location: input.location,
         notes: input.notes,
+        paymentType: input.paymentType,
       }),
     ]);
     const updated = await saleRepo.getById(businessId, id);

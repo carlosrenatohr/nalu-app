@@ -28,5 +28,10 @@ export function createSupplierControllers(services: Services) {
       const supplier = await services.suppliers.update(param(req, "id"), input);
       res.json(ok(supplier));
     },
+
+    delete: async (req: Request, res: Response): Promise<void> => {
+      const result = await services.suppliers.delete(param(req, "id"));
+      res.json(ok(result));
+    },
   };
 }
