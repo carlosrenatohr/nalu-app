@@ -16,6 +16,7 @@ import type {
 // ---------------------------------------------------------------------
 
 export type OutboxStatus = "pending" | "synced" | "failed";
+export type OutboxVerb = "create" | "update" | "delete";
 
 /** Sesión persistida (token de larga duración). Una sola fila clave "current". */
 export interface SessionRecord {
@@ -25,9 +26,11 @@ export interface SessionRecord {
 }
 
 export interface OutboxOp {
-  /** ID de operación = UUID de la entidad (deduplicación en el servidor). */
+  /** ID de operación = UUID de la entidad (deduplicación en el servidor).
+   * Para create coincide con payload.id; para update/delete es un UUID propio. */
   opId: string;
   type: "sale" | "purchase" | "movement" | "flavor" | "supplier";
+  verb?: OutboxVerb;
   payload: Record<string, unknown>;
   status: OutboxStatus;
   attempts: number;

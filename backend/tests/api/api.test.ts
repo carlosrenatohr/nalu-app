@@ -605,4 +605,101 @@ describe("Sincronización offline (outbox)", () => {
     expect(res.body.data.results[0].status).toBe("failed");
     expect(res.body.data.results[0].message).toContain("No hay suficientes");
   });
+
+  it("aplica una actualización de venta offline (verb update)", async () => {
+    const saleId = "60000000-0000-4000-8000-000000000001"; // seed
+    const res = await api("post", "/api/sync/operations")
+      .send({
+        operations: [
+          {
+            type: "sale",
+            verb: "update",
+            opId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            payload: { id: saleId, items: [{ flavorId: FLAVORS.coco, quantity: 2, unitPrice: 60 }] },
+          },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.results[0].status).toBe("applied");
+
+    const sale = await api("get", `/api/sales/${saleId}`);
+    expect(sale.body.data.items).toHaveLength(1);
+  });
+
+  it("aplica un borrado de venta offline (verb delete)", async () => {
+    const saleId = "60000000-0000-4000-8000-000000000001"; // seed
+    const res = await api("post", "/api/sync/operations")
+      .send({
+        operations: [
+          {
+            type: "sale",
+            verb: "delete",
+            opId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            payload: { id: saleId },
+          },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.results[0].status).toBe("applied");
+
+    const sale = await api("get", `/api/sales/${saleId}`);
+    expect(sale.status).toBe(404);
+  });
+
+  it("aplica desactivación de sabor offline (verb update)", async () => {
+    const res = await api("post", "/api/sync/operations")
+      .send({
+        operations: [
+          {
+            type: "flavor",
+            verb: "update",
+            opId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+            payload: { id: FLAVORS.coco, active: false },
+          },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.results[0].status).toBe("applied");
+
+    const flavors = await api("get", "/api/flavors?includeInactive=true");
+    const coco = flavors.body.data.find((f: { id: string }) => f.id === FLAVORS.coco);
+    expect(coco.active).toBe(false);
+  });
+
+  it("aplica archivado de sabor offline (verb delete)", async () => {
+    const res = await api("post", "/api/sync/operations")
+      .send({
+        operations: [
+          {
+            type: "flavor",
+            verb: "delete",
+            opId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+            payload: { id: FLAVORS.coco },
+          },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.results[0].status).toBe("applied");
+    expect(res.body.data.results[0].entityId).toBe(FLAVORS.coco);
+
+    const list = await api("get", "/api/flavors");
+    const coco = list.body.data.find((f: { id: string }) => f.id === FLAVORS.coco);
+    expect(coco).toBeUndefined();
+  });
+
+  it("rechaza update offline para tipos no editables (compra)", async () => {
+    const res = await api("post", "/api/sync/operations")
+      .send({
+        operations: [
+          {
+            type: "purchase",
+            verb: "update",
+            opId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+            payload: { id: "50000000-0000-4000-8000-000000000001", notes: "x" },
+          },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
 });

@@ -1,19 +1,23 @@
-import { localDb, type OutboxOp } from "./db";
+import { localDb, type OutboxOp, type OutboxVerb } from "./db";
+import { newId } from "@/lib/utils/id";
 
 // ---------------------------------------------------------------------
 // Outbox: cola de operaciones pendientes de sincronizar.
-// Cada operación lleva:
-//   - opId: UUID de la entidad (el servidor la deduplica)
-//   - tipo, payload, estado, intentos y fecha
+//   - create  → opId = id de la entidad (payload.id); el servidor deduplica.
+//   - update/delete (solo sale y flavor) → opId propio (UUID de la
+//     operación) para no colisionar con el create de la misma entidad;
+//     payload.id es el id de la entidad.
 // ---------------------------------------------------------------------
 
 export function createOutboxOp(
   type: OutboxOp["type"],
   payload: Record<string, unknown>,
+  verb: OutboxVerb = "create",
 ): OutboxOp {
   return {
-    opId: payload.id as string,
+    opId: verb === "create" ? (payload.id as string) : newId(),
     type,
+    verb,
     payload,
     status: "pending",
     attempts: 0,
@@ -24,8 +28,14 @@ export function createOutboxOp(
 export async function enqueue(
   type: OutboxOp["type"],
   payload: Record<string, unknown>,
+  verb: OutboxVerb = "create",
+  opId?: string,
 ): Promise<void> {
-  await localDb.outbox.put(createOutboxOp(type, payload));
+  await localDb.outbox.put(
+    opId
+      ? { ...createOutboxOp(type, payload, verb), opId }
+      : createOutboxOp(type, payload, verb),
+  );
 }
 
 export async function listPending(): Promise<OutboxOp[]> {

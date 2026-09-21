@@ -31,17 +31,18 @@ function movementSign(p: { movementType: string; quantity: number; direction?: s
 }
 
 export async function revertOperation(op: OutboxOp): Promise<void> {
+  const entityId = op.payload.id as string;
   switch (op.type) {
     case "sale": {
       const items = (op.payload.items as { flavorId: string; quantity: number }[] | undefined) ?? [];
       await reverseInventoryDeltas(items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity })));
-      await localDb.sales.delete(op.opId);
+      await localDb.sales.delete(entityId);
       break;
     }
     case "purchase": {
       const items = (op.payload.items as { flavorId: string; quantity: number }[] | undefined) ?? [];
       await reverseInventoryDeltas(items.map((i) => ({ flavorId: i.flavorId, delta: i.quantity })));
-      await localDb.purchases.delete(op.opId);
+      await localDb.purchases.delete(entityId);
       break;
     }
     case "movement": {
@@ -49,14 +50,14 @@ export async function revertOperation(op: OutboxOp): Promise<void> {
       await reverseInventoryDeltas([
         { flavorId: payload.flavorId, delta: movementSign(payload) },
       ]);
-      await localDb.movements.delete(op.opId);
+      await localDb.movements.delete(entityId);
       break;
     }
     case "flavor":
-      await localDb.flavors.delete(op.opId);
+      await localDb.flavors.delete(entityId);
       break;
     case "supplier":
-      await localDb.suppliers.delete(op.opId);
+      await localDb.suppliers.delete(entityId);
       break;
   }
   await localDb.outbox.delete(op.opId);

@@ -142,6 +142,16 @@ export const flavorsApi = {
   },
 
   async update(id: string, input: Partial<{ name: string; emoji: string; color: string; costPrice: number; salePrice: number; minStock: number; active: boolean }>): Promise<Flavor> {
+    if (!isOnline()) {
+      const existing = await localDb.flavors.get(id);
+      const updated = existing
+        ? { ...existing, ...input, updatedAt: new Date().toISOString() }
+        : undefined;
+      if (updated) await localDb.flavors.put(updated);
+      await enqueue("flavor", { ...input, id }, "update");
+      syncEngine.requestSync();
+      return updated ?? ({ id } as Flavor);
+    }
     const flavor = await apiRequest<Flavor>(`/flavors/${id}`, { method: "PATCH", body: input });
     await localDb.flavors.put(flavor);
     return flavor;
@@ -152,6 +162,12 @@ export const flavorsApi = {
    * referencias, o lo archiva si conserva historial (archived = true).
    */
   async delete(id: string): Promise<{ flavor: Flavor; archived: boolean }> {
+    if (!isOnline()) {
+      await localDb.flavors.delete(id);
+      await enqueue("flavor", { id }, "delete");
+      syncEngine.requestSync();
+      return { flavor: { id } as Flavor, archived: false };
+    }
     const result = await apiRequest<{ flavor: Flavor; archived: boolean }>(`/flavors/${id}`, {
       method: "DELETE",
     });
@@ -385,6 +401,12 @@ export const salesApi = {
   },
 
   async update(id: string, input: Partial<NewSaleInput>): Promise<Sale> {
+    if (!isOnline()) {
+      await enqueue("sale", { ...input, id }, "update");
+      await updateLocalSale(id, input);
+      syncEngine.requestSync();
+      return (await localDb.sales.get(id)) ?? ({} as Sale);
+    }
     const sale = await apiRequest<Sale>(`/sales/${id}`, { method: "PATCH", body: input });
     await localDb.sales.put(sale);
     await refreshInventoryCache();
@@ -392,6 +414,18 @@ export const salesApi = {
   },
 
   async delete(id: string): Promise<Sale> {
+    if (!isOnline()) {
+      const existing = await localDb.sales.get(id);
+      if (existing) {
+        await applyLocalInventoryDelta(
+          existing.items.map((i) => ({ flavorId: i.flavorId, delta: i.quantity })),
+        );
+        await localDb.sales.delete(id);
+      }
+      await enqueue("sale", { id }, "delete");
+      syncEngine.requestSync();
+      return existing ?? ({} as Sale);
+    }
     const sale = await apiRequest<Sale>(`/sales/${id}`, { method: "DELETE" });
     await localDb.sales.delete(id);
     await refreshInventoryCache();
@@ -434,6 +468,62 @@ async function createLocalSale(payload: NewSaleInput & { id: string }): Promise<
     payload.items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity })),
   );
   return sale;
+}
+
+/**
+ * Aplica localmente (offline) una edición de venta: revierte las salidas
+ * viejas, aplica las nuevas y actualiza el registro local. Es una
+ * estimación para la UI; el servidor recalcula al sincronizar.
+ */
+async function updateLocalSale(id: string, input: Partial<NewSaleInput>): Promise<void> {
+  const existing = await localDb.sales.get(id);
+  if (!existing) return;
+
+  if (input.items) {
+    const oldDeltas = existing.items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity }));
+    const newDeltas = input.items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity }));
+    const map = new Map<string, number>();
+    for (const d of [...oldDeltas, ...newDeltas]) {
+      map.set(d.flavorId, (map.get(d.flavorId) ?? 0) + d.delta);
+    }
+    await applyLocalInventoryDelta(
+      Array.from(map.entries()).map(([flavorId, delta]) => ({ flavorId, delta })),
+    );
+
+    const existingById = new Map(existing.items.map((i) => [i.flavorId, i]));
+    const items = input.items.map((it) => {
+      const prev = existingById.get(it.flavorId);
+      return {
+        id: prev?.id ?? newId(),
+        saleId: id,
+        flavorId: it.flavorId,
+        flavorName: prev?.flavorName,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        unitCostSnapshot: prev?.unitCostSnapshot ?? 0,
+        subtotal: it.quantity * it.unitPrice,
+      };
+    });
+    const total = items.reduce((acc, i) => acc + i.subtotal, 0);
+    await localDb.sales.put({
+      ...existing,
+      ...(input.saleDate !== undefined ? { saleDate: input.saleDate } : {}),
+      ...(input.location !== undefined ? { location: input.location } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      items,
+      total,
+      profit: total - items.reduce((acc, i) => acc + i.quantity * i.unitCostSnapshot, 0),
+      updatedAt: new Date().toISOString(),
+    });
+  } else {
+    await localDb.sales.put({
+      ...existing,
+      ...(input.saleDate !== undefined ? { saleDate: input.saleDate } : {}),
+      ...(input.location !== undefined ? { location: input.location } : {}),
+      ...(input.notes !== undefined ? { notes: input.notes } : {}),
+      updatedAt: new Date().toISOString(),
+    });
+  }
 }
 
 export const purchasesApi = {
@@ -543,7 +633,12 @@ function toCachedInventory(inventory: FlavorInventory[]): CachedInventory[] {
 
 /** Envía operaciones del outbox al servidor (endpoint de sync). */
 export async function syncOperationsApi(
-  operations: { type: string; payload: Record<string, unknown> }[],
+  operations: {
+    opId: string;
+    type: string;
+    verb?: string;
+    payload: Record<string, unknown>;
+  }[],
 ): Promise<{ results: SyncOperationResult[] }> {
   return apiRequest("/sync/operations", { method: "POST", body: { operations } });
 }
