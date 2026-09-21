@@ -44,6 +44,8 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
   const [notes, setNotes] = useState("");
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
+  const [onlyIncluded, setOnlyIncluded] = useState(false);
 
   // Inicializar desde la compra existente
   useEffect(() => {
@@ -79,6 +81,18 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
   function removeLine(flavorId: string) {
     setLines((prev) => prev.filter((l) => l.flavorId !== flavorId));
   }
+
+  // Sabores visibles: filtrables por nombre y (si el switch está activo)
+  // solo los que ya incluyó el operador (ocultar los que están en 0).
+  const visibleFlavors = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (flavors.data ?? []).filter((flavor) => {
+      if (onlyIncluded && (lines.find((l) => l.flavorId === flavor.id)?.quantity ?? 0) <= 0) {
+        return false;
+      }
+      return q === "" || flavor.name.toLowerCase().includes(q);
+    });
+  }, [flavors.data, query, onlyIncluded, lines]);
 
   const total = useMemo(() => lines.reduce((acc, l) => acc + l.quantity * l.unitCost, 0), [lines]);
   const totalUnits = useMemo(() => lines.reduce((acc, l) => acc + l.quantity, 0), [lines]);
@@ -151,9 +165,35 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
         </div>
 
         <div>
-          <span className="mb-2 block text-sm font-bold text-cocoa-soft">Sabores comprados</span>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-bold text-cocoa-soft">Sabores comprados</span>
+            <label className="flex items-center gap-1.5 text-xs font-bold text-cocoa-soft">
+              <input
+                type="checkbox"
+                checked={onlyIncluded}
+                onChange={(e) => setOnlyIncluded(e.target.checked)}
+                className="h-4 w-4 rounded accent-turquoise"
+              />
+              Solo incluidos
+            </label>
+          </div>
+          <label className="relative mb-3 block sm:max-w-xs">
+            <span className="sr-only">Buscar sabor</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar sabor…"
+              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+            />
+          </label>
+          {visibleFlavors.length === 0 ? (
+            <p className="rounded-2xl bg-cream p-4 text-center text-sm font-semibold text-cocoa-soft">
+              No hay sabores que coincidan con la búsqueda.
+            </p>
+          ) : (
           <ul className="space-y-2.5">
-            {(flavors.data ?? []).map((flavor) => {
+            {visibleFlavors.map((flavor) => {
               const line = lines.find((l) => l.flavorId === flavor.id);
               return (
                 <li
@@ -198,6 +238,7 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
               );
             })}
           </ul>
+          )}
         </div>
 
         <Textarea
