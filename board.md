@@ -62,11 +62,35 @@ Add a row to the appropriate project section:
 | Q2 | CI workflow per package | — | — | ✅ Done | — |
 | Q3 | Upgrade Wrangler + dependencies | — | — | 📋 Backlog | — |
 
+## QA Feedback — funcional y UX (release v1.3.0)
+
+| # | Tarea | Status | PR |
+|---|---|---|---|
+| 01 | Compras: edición y eliminación con integridad de inventario (bloqueo 409 si stock negativo) | ✅ Done | #5 |
+| 02 | Compras: menú de acciones (Editar / Eliminar) | ✅ Done | #7 |
+| 03 | Drafts de compras y ventas (recuperar/descartar) | ✅ Done | #10 |
+| 04 | Sabores: eliminar (borrar si sin referencias / archivar si referenciado) | ✅ Done | #2, #4 |
+| 05 | Sabores: activo/inactivo, bloqueo en ventas/compras nuevas | ✅ Done | #2, #4 |
+| 06 | Contadores con cantidad manual (Stepper editable) | ✅ Done | #9 |
+| 07 | Feedback visual al registrar venta >1 unidad | ✅ Done | #9 |
+| 08 | Ajuste de stock bidireccional ± con motivo (movimiento firmado) | ✅ Done | #6 |
+| 09 | Consistencia salida/devolución (ExitModal + Totales ajustadas/devueltas) | ✅ Done | #9 |
+| 10 | UI de sabores en grilla compacta (más info sin scroll) | ✅ Done | #4 |
+| 11 | Selector de emoji en modal con default 🍧 | ✅ Done | #4 |
+| 12 | Personalización de icono: no existe en el código → N/A | ✅ Done | #4 |
+| 13 | Offline extendido a ventas y sabores (edit/delete vía outbox+sync) | ✅ Done | #13 |
+| 14 | Detalle de cambios pendientes + descarte (revert) seguro | ✅ Done | #12 |
+| 15 | Sync robusta: backoff + reintento automático (causa raíz item 15) | ✅ Done | #11 |
+| 16 | Reutilización de componentes (ActionMenu, DraftBanner, Modal, Stepper) + touch targets ≥44px | ✅ Done | #7, #10, #14 |
+
 ## Releases
 
 | Version | Date | Repos |
 |---|---|---|
 | **v1.0.0** | — | First release |
+| **v1.1.0** | 2026-08-17 | CRUD sabores/ventas/proveedores |
+| **v1.2.0** | 2026-09-02 | Sprint 15 |
+| **v1.3.0** | 2026-09-20 | QA Feedback funcional y UX |
 
 ## Post-incidente
 

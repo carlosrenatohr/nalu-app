@@ -42,8 +42,9 @@ Cada operación pendiente tiene:
 
 | Campo | Descripción |
 |---|---|
-| `opId` | UUID de la entidad (clave de deduplicación) |
+| `opId` | UUID de la operación (deduplicación). Para `create` = id de la entidad; para `update`/`delete` = UUID propio |
 | `type` | `sale`, `purchase`, `movement`, `flavor`, `supplier` |
+| `verb` | `create` (default), `update`, `delete` |
 | `payload` | Datos completos de la entidad (incluye el `id`) |
 | `status` | `pending` → `synced` / `failed` |
 | `attempts` | Reintentos |
@@ -53,17 +54,16 @@ Cada operación pendiente tiene:
 
 - Escucha los eventos `online`/`offline` del navegador.
 - Sincroniza automáticamente al volver la conexión (y tras cada escritura local, con debounce de 1,5 s).
+- **Reintentos con backoff exponencial (2s→60s)**: las operaciones fallidas esperan su ventana y se reintentan solas; también se programa reintento tras un error de red.
 - Envía las operaciones pendientes a `POST /api/sync/operations` y aplica el resultado:
   - `applied` / `duplicate` → se marca `synced`.
-  - `failed` (p. ej. inventario insuficiente) → se marca `failed` con mensaje; la UI lo muestra y la operación queda para revisión.
+  - `failed` (p. ej. inventario insuficiente) → se marca `failed` con mensaje; la UI lo muestra y la operación queda para revisión (se puede descartar desde el detalle de pendientes).
 - Tras sincronizar, refresca el caché de inventario desde el servidor.
 
 ## Idempotencia y protección contra duplicados
 
-**El `opId` es el UUID de la entidad.** El servidor:
-
-1. Verifica `sync_operations` → si el `opId` ya existe, responde `duplicate` sin reaplicar.
-2. Inserta la entidad con ese mismo UUID → cualquier reintento concurrente choca con la clave primaria y se trata como duplicado.
+- **create:** el `opId` es el UUID de la entidad. El servidor verifica `sync_operations` → si el `opId` ya existe, responde `duplicate` sin reaplicar; cualquier reintento concurrente choca con la clave primaria.
+- **update/delete (sale y flavor):** usan un `opId` propio (UUID de la operación), distinto del id de la entidad, para no colisionar con el `create` de la misma entidad y poder deduplicar reintentos.
 
 Esto hace que los reintentos (red cortada a mitad de sync, doble clic, etc.) sean **seguros por diseño**.
 
@@ -80,9 +80,13 @@ El chip de estado en el encabezado muestra siempre:
 ## Operaciones soportadas offline
 
 - Registrar ventas (con totales estimados y costo histórico del caché).
+- **Editar y eliminar ventas** (el servidor recalcula al sincronizar).
 - Registrar compras.
-- Registrar regalos, consumo propio, pérdidas y ajustes.
+- Registrar regalos, consumo propio, pérdidas y ajustes (el ajuste es ± con motivo).
 - Crear sabores y proveedores.
+- **Editar y eliminar sabores** (activar/desactivar, borrar o archivar según referencias).
 - Ver inventario, ventas, compras y movimientos cacheados.
+
+**Requieren conexión (online):** editar/eliminar **compras**, y los updates de proveedores, ubicaciones y ajustes del negocio.
 
 **Nota de exactitud:** mientras está offline, los totales mostrados son estimaciones locales; al sincronizar, el servidor recalcula y corrige los valores (el servidor es la fuente de verdad financiera).

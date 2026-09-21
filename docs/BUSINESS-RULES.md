@@ -18,6 +18,8 @@ Existen 7 tipos de movimiento:
 
 **Regla crítica:** regalar, consumo propio y pérdidas **nunca** se cuentan como ventas ni generan ingresos. Solo `SALE` genera ingresos.
 
+**Ajuste manual de stock:** `ADJUSTMENT` es bidireccional (aumenta o disminuye según la dirección) y **exige un motivo** (`notes`). Queda registrado como movimiento firmado con su trazabilidad.
+
 ## 2. Inventario basado en movimientos
 
 El disponible de un sabor es **siempre** la suma de las cantidades firmadas de sus movimientos:
@@ -76,6 +78,8 @@ Al registrar una compra:
 
 El total de la compra lo calcula el servidor (nunca se confía en el subtotal enviado por el cliente).
 
+**Edición y eliminación de compras:** una compra puede editarse o eliminarse. El servidor revierte los movimientos `PURCHASE` originales y recrea los nuevos en una transacción atómica, recalculando el total. Si tras modificar o eliminar algún sabor quedaría con inventario negativo, la operación se bloquea con `409 INSUFFICIENT_INVENTORY` (sin dejar stock negativo).
+
 ## 7. Ventas
 
 Flujo de la venta rápida (móvil):
@@ -88,6 +92,8 @@ Flujo de la venta rápida (móvil):
 6. Confirmar → se guarda la venta + ítems + movimientos de salida.
 
 El servidor recalcula subtotales y total; el precio lo define el vendedor (los botones rápidos 40/50/60 son atajos, no reglas).
+
+**Edición de ventas:** al editar, las líneas cuya cantidad **no cambió** conservan su costo histórico original; solo las líneas agregadas o con cantidad modificada recongelan con el costo promedio del momento de la edición (se tratan como una venta parcial nueva).
 
 ## 8. Precios por defecto (configurables)
 
@@ -109,6 +115,7 @@ Son valores iniciales del negocio, **no** reglas de negocio. El vendedor puede c
 
 - Las ubicaciones (Casa, Puesto, Otro) se administran en Ajustes; las ventas guardan el **nombre** de la ubicación (desnormalizado a propósito: mantiene el histórico estable ante renombres futuros, decisión documentada).
 - Se pueden crear nuevos sabores; su `slug` se genera automáticamente y es único por negocio.
+- **Ciclo de vida de sabores:** un sabor desactivado (o archivado) **no aparece** en nuevas ventas ni compras (`400 FLAVOR_INACTIVE`), pero los registros históricos siguen mostrándolo correctamente. Editar registros existentes que lo contienen sigue permitido. Al "eliminar", el servidor lo borra físicamente si no tiene referencias históricas; si las tiene, lo **archiva** (`active = false`) para no romper el historial.
 
 ## 11. Atomicidad
 
