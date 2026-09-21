@@ -11,8 +11,10 @@ import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { Modal } from "@/components/ui/Modal";
 import { DraftBanner } from "@/components/ui/DraftBanner";
+import { PaymentSelect } from "@/components/ui/PaymentSelect";
 import { clearDraft, draftKey, loadDraft, saveDraft } from "@/lib/drafts";
 import { IconArrowLeft, IconCheck, IconPlus } from "@/components/ui/icons";
+import type { PaymentType } from "@/types";
 
 // ---------------------------------------------------------------------
 // Nueva compra: proveedor, fecha, sabores con cantidades y costos.
@@ -31,6 +33,7 @@ interface PurchaseDraft {
   date: string;
   lines: Line[];
   notes: string;
+  paymentType: PaymentType;
 }
 
 export function NewPurchasePage() {
@@ -45,6 +48,7 @@ export function NewPurchasePage() {
   const [date, setDate] = useState(localToday());
   const [lines, setLines] = useState<Line[]>([]);
   const [notes, setNotes] = useState("");
+  const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [saving, setSaving] = useState(false);
 
   // Borrador: recupera uno guardado o crea uno nuevo mientras se edita.
@@ -58,10 +62,10 @@ export function NewPurchasePage() {
   useEffect(() => {
     if (draftNotice) return;
     const t = setTimeout(() => {
-      saveDraft(draftKeyPurchase, { supplierId, date, lines, notes });
+      saveDraft(draftKeyPurchase, { supplierId, date, lines, notes, paymentType });
     }, 400);
     return () => clearTimeout(t);
-  }, [draftKeyPurchase, supplierId, date, lines, notes, draftNotice]);
+  }, [draftKeyPurchase, supplierId, date, lines, notes, paymentType, draftNotice]);
 
   function handleContinueDraft() {
     if (!draftNotice) return;
@@ -69,6 +73,7 @@ export function NewPurchasePage() {
     setDate(draftNotice.date ?? localToday());
     setLines(draftNotice.lines ?? []);
     setNotes(draftNotice.notes ?? "");
+    setPaymentType(draftNotice.paymentType ?? "cash");
     clearDraft(draftKeyPurchase);
     setDraftNotice(null);
   }
@@ -125,6 +130,7 @@ export function NewPurchasePage() {
         purchaseDate: date,
         supplierId,
         notes: notes.trim() || undefined,
+        paymentType,
         items: lines
           .filter((l) => l.quantity > 0)
           .map((l) => ({ flavorId: l.flavorId, quantity: l.quantity, unitCost: l.unitCost })),
@@ -275,22 +281,28 @@ export function NewPurchasePage() {
         maxLength={500}
       />
 
-      <div className="rounded-[1.25rem] bg-gradient-to-br from-mango to-orange p-5 text-cocoa shadow-soft">
-        <div className="flex items-center justify-between text-sm font-bold text-cocoa/75">
-          <span>{totalUnits} paletas</span>
-        </div>
-        <div className="mt-1 flex items-end justify-between">
-          <div>
-            <p className="text-sm font-bold text-cocoa/75">Total de la compra</p>
-            <p className="text-4xl font-black tracking-tight">{formatMoney(total, currency)}</p>
+      {/* Tipo de pago */}
+      <PaymentSelect value={paymentType} onChange={setPaymentType} />
+
+      {/* Resumen + guardar: barra inferior fija para ver el total siempre */}
+      <div className="sticky bottom-0 z-10 -mx-4 space-y-3 bg-cream/90 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
+        <div className="rounded-[1.25rem] bg-gradient-to-br from-mango to-orange p-5 text-cocoa shadow-soft">
+          <div className="flex items-center justify-between text-sm font-bold text-cocoa/75">
+            <span>{totalUnits} paletas</span>
+          </div>
+          <div className="mt-1 flex items-end justify-between">
+            <div>
+              <p className="text-sm font-bold text-cocoa/75">Total de la compra</p>
+              <p className="text-4xl font-black tracking-tight">{formatMoney(total, currency)}</p>
+            </div>
           </div>
         </div>
-      </div>
 
-      <Button size="lg" className="w-full" variant="mango" onClick={handleSave} disabled={saving}>
-        <IconCheck className="h-6 w-6" />
-        {saving ? "Guardando…" : "Guardar compra"}
-      </Button>
+        <Button size="lg" className="w-full" variant="mango" onClick={handleSave} disabled={saving}>
+          <IconCheck className="h-6 w-6" />
+          {saving ? "Guardando…" : "Guardar compra"}
+        </Button>
+      </div>
 
       {/* Modal crear proveedor rápido */}
       <Modal

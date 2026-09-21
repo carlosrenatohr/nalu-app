@@ -23,6 +23,7 @@ describe("revertPendingOp", () => {
       location: "Casa",
       notes: null,
       total: 120,
+      paymentType: "cash",
       items: [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

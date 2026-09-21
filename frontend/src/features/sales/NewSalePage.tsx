@@ -13,8 +13,10 @@ import { Modal } from "@/components/ui/Modal";
 import { EmojiPicker } from "@/components/ui/EmojiPicker";
 import { DraftBanner } from "@/components/ui/DraftBanner";
 import { clearDraft, draftKey, loadDraft, saveDraft } from "@/lib/drafts";
+import { PaymentSelect } from "@/components/ui/PaymentSelect";
 import { IconArrowLeft, IconCheck, IconPlus } from "@/components/ui/icons";
 import { cn } from "@/lib/utils/cn";
+import type { PaymentType } from "@/types";
 
 // ---------------------------------------------------------------------
 // Venta rápida: una sola pantalla para registrar en segundos.
@@ -31,6 +33,7 @@ interface SaleDraft {
   quantities: Record<string, number>;
   unitPrice: number;
   customPrice: string;
+  paymentType: PaymentType;
   notes: string;
 }
 
@@ -49,6 +52,7 @@ export function NewSalePage() {
   const [unitPrice, setUnitPrice] = useState<number>(defaultHomePrice);
   const [customPrice, setCustomPrice] = useState<string>("");
   const [notes, setNotes] = useState("");
+  const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -70,6 +74,7 @@ export function NewSalePage() {
         quantities,
         unitPrice,
         customPrice,
+        paymentType,
         notes,
       });
     }, 400);
@@ -82,6 +87,7 @@ export function NewSalePage() {
     quantities,
     unitPrice,
     customPrice,
+    paymentType,
     notes,
     draftNotice,
   ]);
@@ -94,6 +100,7 @@ export function NewSalePage() {
     setQuantities(draftNotice.quantities ?? {});
     setUnitPrice(draftNotice.unitPrice ?? defaultHomePrice);
     setCustomPrice(draftNotice.customPrice ?? "");
+    setPaymentType(draftNotice.paymentType ?? "cash");
     setNotes(draftNotice.notes ?? "");
     clearDraft(draftKeySale);
     setDraftNotice(null);
@@ -196,6 +203,7 @@ export function NewSalePage() {
         saleDate,
         location: effectiveLocation,
         notes: notes.trim() || undefined,
+        paymentType,
         items: selectedLines.map((l) => ({
           flavorId: l.flavorId,
           quantity: l.qty,
@@ -265,50 +273,52 @@ export function NewSalePage() {
         <DraftBanner onContinue={handleContinueDraft} onDiscard={handleDiscardDraft} />
       ) : null}
 
-      {/* Ubicación */}
-      <div>
-        <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">¿Dónde vendes?</span>
-        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Ubicación">
-          {sortedLocations.map((loc) => (
-            <button
-              key={loc.id}
-              type="button"
-              role="radio"
-              aria-checked={location === loc.name}
-              onClick={() => setLocation(loc.name)}
-              className={cn(
-                "min-h-11 rounded-full px-5 text-sm font-bold transition-colors",
-                location === loc.name
-                  ? "bg-turquoise text-white shadow-pop"
-                  : "bg-white text-cocoa-soft ring-1 ring-cocoa/10",
-              )}
-            >
-              {loc.name}
-            </button>
-          ))}
+      {/* Ubicación + fecha en una fila en pantallas grandes */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">¿Dónde vendes?</span>
+          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Ubicación">
+            {sortedLocations.map((loc) => (
+              <button
+                key={loc.id}
+                type="button"
+                role="radio"
+                aria-checked={location === loc.name}
+                onClick={() => setLocation(loc.name)}
+                className={cn(
+                  "min-h-11 rounded-full px-5 text-sm font-bold transition-colors",
+                  location === loc.name
+                    ? "bg-turquoise text-white shadow-pop"
+                    : "bg-white text-cocoa-soft ring-1 ring-cocoa/10",
+                )}
+              >
+                {loc.name}
+              </button>
+            ))}
+          </div>
+          {isOtherSelected && (
+            <input
+              type="text"
+              value={customLocation}
+              onChange={(e) => setCustomLocation(e.target.value)}
+              placeholder="Escribe la ubicación…"
+              autoFocus
+              maxLength={60}
+              className="mt-2 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+            />
+          )}
         </div>
-        {isOtherSelected && (
+        <div>
+          <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">
+            Fecha de la venta
+          </span>
           <input
-            type="text"
-            value={customLocation}
-            onChange={(e) => setCustomLocation(e.target.value)}
-            placeholder="Escribe la ubicación…"
-            autoFocus
-            maxLength={60}
-            className="mt-2 w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+            type="date"
+            value={saleDate}
+            onChange={(e) => setSaleDate(e.target.value)}
+            className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
           />
-        )}
-      </div>
-
-      {/* Fecha de la venta (por defecto hoy) */}
-      <div>
-        <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Fecha de la venta</span>
-        <input
-          type="date"
-          value={saleDate}
-          onChange={(e) => setSaleDate(e.target.value)}
-          className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
-        />
+        </div>
       </div>
 
       {/* Sabores */}
@@ -324,7 +334,7 @@ export function NewSalePage() {
             Nuevo
           </button>
         </div>
-        <label className="relative mb-3 block">
+        <label className="relative mb-3 block sm:max-w-xs">
           <span className="sr-only">Buscar sabor</span>
           <input
             type="search"
@@ -436,40 +446,45 @@ export function NewSalePage() {
         />
       </div>
 
-      {/* Resumen */}
-      <div className="rounded-[1.25rem] bg-gradient-to-br from-turquoise to-turquoise-deep p-5 text-white shadow-pop">
-        <div className="flex items-center justify-between text-sm font-bold text-white/85">
-          {totalUnits > 1 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-mango px-2.5 py-0.5 text-xs font-extrabold text-cocoa shadow-soft">
-              {unitsText}
-            </span>
-          ) : (
-            <span>{unitsText}</span>
-          )}
-          <span>Costo est. {formatMoney(estimatedCost, currency)}</span>
-        </div>
-        <div className="mt-1 flex items-end justify-between">
-          <div>
-            <p className="text-sm font-bold text-white/85">Total</p>
-            <p className="text-4xl font-black tracking-tight">{formatMoney(total, currency)}</p>
-          </div>
-          <p className="text-right">
-            <span className="text-xs font-bold text-white/85">Ganancia est.</span>
-            <br />
-            <span className="text-xl font-black">+{formatMoney(profit, currency)}</span>
-          </p>
-        </div>
-      </div>
+      {/* Tipo de pago */}
+      <PaymentSelect value={paymentType} onChange={setPaymentType} />
 
-      <Button
-        size="lg"
-        className="w-full"
-        onClick={handleSave}
-        disabled={saving || selectedLines.length === 0}
-      >
-        <IconCheck className="h-6 w-6" />
-        {saving ? "Guardando…" : "Confirmar venta"}
-      </Button>
+      {/* Resumen + confirmar: barra inferior fija para ver el total siempre */}
+      <div className="sticky bottom-0 z-10 -mx-4 space-y-3 bg-cream/90 px-4 py-3 backdrop-blur-sm sm:-mx-6 sm:px-6">
+        <div className="rounded-[1.25rem] bg-gradient-to-br from-turquoise to-turquoise-deep p-5 text-white shadow-pop">
+          <div className="flex items-center justify-between text-sm font-bold text-white/85">
+            {totalUnits > 1 ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-mango px-2.5 py-0.5 text-xs font-extrabold text-cocoa shadow-soft">
+                {unitsText}
+              </span>
+            ) : (
+              <span>{unitsText}</span>
+            )}
+            <span>Costo est. {formatMoney(estimatedCost, currency)}</span>
+          </div>
+          <div className="mt-1 flex items-end justify-between">
+            <div>
+              <p className="text-sm font-bold text-white/85">Total</p>
+              <p className="text-4xl font-black tracking-tight">{formatMoney(total, currency)}</p>
+            </div>
+            <p className="text-right">
+              <span className="text-xs font-bold text-white/85">Ganancia est.</span>
+              <br />
+              <span className="text-xl font-black">+{formatMoney(profit, currency)}</span>
+            </p>
+          </div>
+        </div>
+
+        <Button
+          size="lg"
+          className="w-full"
+          onClick={handleSave}
+          disabled={saving || selectedLines.length === 0}
+        >
+          <IconCheck className="h-6 w-6" />
+          {saving ? "Guardando…" : "Confirmar venta"}
+        </Button>
+      </div>
 
       {/* Modal crear sabor rápido */}
       <Modal

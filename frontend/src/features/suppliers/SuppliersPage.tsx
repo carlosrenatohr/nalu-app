@@ -8,12 +8,14 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
-import { IconPlus, IconStore, IconEdit } from "@/components/ui/icons";
+import { ActionMenu } from "@/components/ui/ActionMenu";
+import { IconPlus, IconStore, IconEdit, IconTrash } from "@/components/ui/icons";
 import { SupplierModal } from "./SupplierModal";
 import type { Supplier } from "@/types";
 
 // ---------------------------------------------------------------------
-// CRUD completo de proveedores: listar, crear, editar y desactivar.
+// CRUD completo de proveedores: listar, crear, editar, desactivar y
+// eliminar (borrado físico si sin compras, archivo si hay historial).
 // ---------------------------------------------------------------------
 
 export function SuppliersPage() {
@@ -23,7 +25,9 @@ export function SuppliersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [toggleModal, setToggleModal] = useState<Supplier | null>(null);
+  const [deleteModal, setDeleteModal] = useState<Supplier | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function handleCreate() {
     setEditingSupplier(null);
@@ -46,6 +50,24 @@ export function SuppliersPage() {
       toast(err instanceof Error ? err.message : "No se pudo actualizar", "error");
     } finally {
       setToggling(false);
+    }
+  }
+
+  async function handleDeleteSupplier(supplier: Supplier) {
+    setDeleting(true);
+    try {
+      const result = await suppliersApi.delete(supplier.id);
+      toast(
+        result.archived
+          ? `"${supplier.name}" archivado (conserva su historial)`
+          : `"${supplier.name}" eliminado`,
+      );
+      setDeleteModal(null);
+      reload();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "No se pudo eliminar el proveedor", "error");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -89,25 +111,26 @@ export function SuppliersPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(s)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-cocoa-soft hover:bg-cocoa/5"
-                      aria-label={`Editar ${s.name}`}
-                    >
-                      <IconEdit className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setToggleModal(s)}
-                      className={`min-h-10 rounded-full px-3 text-xs font-bold transition-colors ${
-                        s.active
-                          ? "bg-strawberry/10 text-strawberry"
-                          : "bg-kiwi/15 text-kiwi"
-                      }`}
-                    >
-                      {s.active ? "Desactivar" : "Activar"}
-                    </button>
+                    <ActionMenu
+                      label={`Acciones de ${s.name}`}
+                      items={[
+                        {
+                          label: "Editar",
+                          icon: <IconEdit className="h-4 w-4" />,
+                          onClick: () => handleEdit(s),
+                        },
+                        {
+                          label: s.active ? "Desactivar" : "Activar",
+                          onClick: () => setToggleModal(s),
+                        },
+                        {
+                          label: "Eliminar",
+                          icon: <IconTrash className="h-4 w-4" />,
+                          danger: true,
+                          onClick: () => setDeleteModal(s),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
               </Card>
@@ -157,6 +180,34 @@ export function SuppliersPage() {
           {toggleModal?.active
             ? `¿Desactivar "${toggleModal?.name}"? No aparecerá en las listas de compras.`
             : `¿Reactivar "${toggleModal?.name}"? Volverá a estar disponible.`}
+        </p>
+      </Modal>
+
+      {/* Modal confirmar eliminar */}
+      <Modal
+        open={Boolean(deleteModal)}
+        onClose={() => setDeleteModal(null)}
+        title="Eliminar proveedor"
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => setDeleteModal(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={() => deleteModal && handleDeleteSupplier(deleteModal)}
+              disabled={deleting}
+            >
+              {deleting ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-cocoa">
+          {deleteModal?.active
+            ? `¿Eliminar "${deleteModal?.name}"? Si tiene compras registradas, se archivará para no romper el historial.`
+            : `¿Eliminar "${deleteModal?.name}"? Es un proveedor archivado; se borrará definitivamente.`}
         </p>
       </Modal>
     </div>
