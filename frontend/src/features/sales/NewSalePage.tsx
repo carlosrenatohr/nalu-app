@@ -25,11 +25,13 @@ import { cn } from "@/lib/utils/cn";
 const QUICK_PRICES = [40, 50, 60];
 
 interface SaleDraft {
+  saleDate: string;
   location: string;
   customLocation: string;
   quantities: Record<string, number>;
   unitPrice: number;
   customPrice: string;
+  notes: string;
 }
 
 export function NewSalePage() {
@@ -40,11 +42,14 @@ export function NewSalePage() {
   const inventory = useAsync(() => inventoryApi.list(), []);
   const locations = useAsync(() => locationsApi.list(), []);
 
+  const [saleDate, setSaleDate] = useState(localToday());
   const [location, setLocation] = useState("");
   const [customLocation, setCustomLocation] = useState("");
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [unitPrice, setUnitPrice] = useState<number>(defaultHomePrice);
   const [customPrice, setCustomPrice] = useState<string>("");
+  const [notes, setNotes] = useState("");
+  const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Borrador: recupera uno guardado o crea uno nuevo mientras se edita.
@@ -58,18 +63,38 @@ export function NewSalePage() {
   useEffect(() => {
     if (draftNotice) return;
     const t = setTimeout(() => {
-      saveDraft(draftKeySale, { location, customLocation, quantities, unitPrice, customPrice });
+      saveDraft(draftKeySale, {
+        saleDate,
+        location,
+        customLocation,
+        quantities,
+        unitPrice,
+        customPrice,
+        notes,
+      });
     }, 400);
     return () => clearTimeout(t);
-  }, [draftKeySale, location, customLocation, quantities, unitPrice, customPrice, draftNotice]);
+  }, [
+    draftKeySale,
+    saleDate,
+    location,
+    customLocation,
+    quantities,
+    unitPrice,
+    customPrice,
+    notes,
+    draftNotice,
+  ]);
 
   function handleContinueDraft() {
     if (!draftNotice) return;
+    setSaleDate(draftNotice.saleDate ?? localToday());
     setLocation(draftNotice.location ?? "");
     setCustomLocation(draftNotice.customLocation ?? "");
     setQuantities(draftNotice.quantities ?? {});
     setUnitPrice(draftNotice.unitPrice ?? defaultHomePrice);
     setCustomPrice(draftNotice.customPrice ?? "");
+    setNotes(draftNotice.notes ?? "");
     clearDraft(draftKeySale);
     setDraftNotice(null);
   }
@@ -89,6 +114,17 @@ export function NewSalePage() {
     () => new Map((inventory.data ?? []).map((i) => [i.flavor.id, i])),
     [inventory.data],
   );
+
+  // Solo sabores ACTIVOS y con stock, filtrables por nombre.
+  const visibleFlavors = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (inventory.data ?? []).filter(
+      (inv) =>
+        inv.flavor.active &&
+        inv.available > 0 &&
+        (q === "" || inv.flavor.name.toLowerCase().includes(q)),
+    );
+  }, [inventory.data, query]);
 
   const parsedCustom = customPrice !== "" ? Number(customPrice) : null;
   const isPriceValid = parsedCustom === null || (parsedCustom > 0 && Number.isFinite(parsedCustom));
@@ -157,8 +193,9 @@ export function NewSalePage() {
       }
 
       const sale = await salesApi.create({
-        saleDate: localToday(),
+        saleDate,
         location: effectiveLocation,
+        notes: notes.trim() || undefined,
         items: selectedLines.map((l) => ({
           flavorId: l.flavorId,
           quantity: l.qty,
@@ -263,6 +300,17 @@ export function NewSalePage() {
         )}
       </div>
 
+      {/* Fecha de la venta (por defecto hoy) */}
+      <div>
+        <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Fecha de la venta</span>
+        <input
+          type="date"
+          value={saleDate}
+          onChange={(e) => setSaleDate(e.target.value)}
+          className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+        />
+      </div>
+
       {/* Sabores */}
       <div>
         <div className="mb-2 flex items-center justify-between">
@@ -276,36 +324,54 @@ export function NewSalePage() {
             Nuevo
           </button>
         </div>
-        <ul className="space-y-2.5">
-          {inventory.data.map((inv) => (
-            <li
-              key={inv.flavor.id}
-              className={cn(
-                "flex items-center justify-between gap-3 rounded-[1.25rem] bg-white p-3 ring-1 transition-all",
-                (quantities[inv.flavor.id] ?? 0) > 0
-                  ? "ring-turquoise shadow-soft"
-                  : "ring-cocoa/5",
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="text-3xl" aria-hidden="true">
-                  {inv.flavor.emoji ?? "🍦"}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate font-extrabold text-cocoa">{inv.flavor.name}</p>
-                  <p className="text-xs font-semibold text-cocoa-soft">
-                    {inv.available} disponibles
+        <label className="relative mb-3 block">
+          <span className="sr-only">Buscar sabor</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar sabor…"
+            className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+          />
+        </label>
+        {visibleFlavors.length === 0 ? (
+          <p className="rounded-2xl bg-cream p-4 text-center text-sm font-semibold text-cocoa-soft">
+            No hay sabores disponibles con ese nombre.
+          </p>
+        ) : (
+          <ul className="grid grid-cols-2 gap-3">
+            {visibleFlavors.map((inv) => (
+              <li
+                key={inv.flavor.id}
+                className={cn(
+                  "flex flex-col gap-2 rounded-[1.25rem] bg-white p-3 ring-1 transition-all",
+                  (quantities[inv.flavor.id] ?? 0) > 0
+                    ? "ring-turquoise shadow-soft"
+                    : "ring-cocoa/5",
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-2xl" aria-hidden="true">
+                    {inv.flavor.emoji ?? "🍦"}
+                  </span>
+                  <p className="min-w-0 line-clamp-2 font-extrabold leading-tight text-cocoa">
+                    {inv.flavor.name}
                   </p>
                 </div>
-              </div>
-              <Stepper
-                value={quantities[inv.flavor.id] ?? 0}
-                onChange={(v) => setQty(inv.flavor.id, v)}
-                max={Math.max(0, inv.available)}
-              />
-            </li>
-          ))}
-        </ul>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[11px] font-semibold text-cocoa-soft">
+                    {inv.available} disp.
+                  </span>
+                  <Stepper
+                    value={quantities[inv.flavor.id] ?? 0}
+                    onChange={(v) => setQty(inv.flavor.id, v)}
+                    max={Math.max(0, inv.available)}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Precio */}
@@ -353,6 +419,21 @@ export function NewSalePage() {
         {customPrice !== "" && !isPriceValid && (
           <p className="mt-1 text-xs font-semibold text-fresa">Ingresa un precio válido (mayor a 0)</p>
         )}
+      </div>
+
+      {/* Comentario */}
+      <div>
+        <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">
+          Comentario (opcional)
+        </span>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Ej. entrega, cliente especial, nota de la venta…"
+          rows={2}
+          maxLength={500}
+          className="w-full rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
+        />
       </div>
 
       {/* Resumen */}
