@@ -6,14 +6,15 @@ import { flavorsApi, purchasesApi, suppliersApi } from "@/services/api";
 import { formatMoney, localToday } from "@/lib/formatting/currency";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea } from "@/components/ui/Input";
-import { Stepper } from "@/components/ui/Stepper";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { Modal } from "@/components/ui/Modal";
 import { DraftBanner } from "@/components/ui/DraftBanner";
 import { PaymentSelect } from "@/components/ui/PaymentSelect";
+import { FlavorQuantityRow } from "@/components/ui/FlavorQuantityRow";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { matchesSearch } from "@/lib/utils/search";
+import { isSelectableFlavor } from "@/lib/utils/flavors";
 import { clearDraft, draftKey, loadDraft, saveDraft } from "@/lib/drafts";
 import { IconArrowLeft, IconCheck, IconPlus } from "@/components/ui/icons";
 import type { PaymentType } from "@/types";
@@ -119,13 +120,13 @@ export function NewPurchasePage() {
     setLines((prev) => prev.filter((l) => l.flavorId !== flavorId));
   }
 
-  // Sabores visibles: activos, filtrables por nombre (sin acentos) y (si el
-  // switch está activo) solo los que ya incluyó el operador (ocultar los 0).
+  // Sabores visibles: activos (el caché offline guarda archivados), filtrables
+  // por nombre (sin acentos) y (si el switch está activo) solo los ya incluidos.
   const visibleFlavors = useMemo(() => {
     return (flavors.data ?? []).filter((flavor) => {
-      if (onlyIncluded && (lines.find((l) => l.flavorId === flavor.id)?.quantity ?? 0) <= 0) {
-        return false;
-      }
+      const includedQty = lines.find((l) => l.flavorId === flavor.id)?.quantity ?? 0;
+      if (!isSelectableFlavor(flavor, includedQty)) return false;
+      if (onlyIncluded && includedQty <= 0) return false;
       return matchesSearch(query, flavor.name);
     });
   }, [flavors.data, query, onlyIncluded, lines]);
@@ -263,18 +264,18 @@ export function NewPurchasePage() {
           {visibleFlavors.map((flavor) => {
             const line = lines.find((l) => l.flavorId === flavor.id);
             return (
-              <li
+              <FlavorQuantityRow
                 key={flavor.id}
-                className="flex items-center justify-between gap-2 rounded-[1.25rem] bg-white p-3 ring-1 ring-cocoa/5"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="text-3xl" aria-hidden="true">
-                    {flavor.emoji ?? "🍦"}
-                  </span>
-                  <p className="min-w-0 truncate font-extrabold text-cocoa">{flavor.name}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {line && line.quantity > 0 ? (
+                id={flavor.id}
+                name={flavor.name}
+                emoji={flavor.emoji}
+                quantity={line?.quantity ?? 0}
+                onChange={(v) => {
+                  if (v === 0) removeLine(flavor.id);
+                  else setLine(flavor.id, { quantity: v });
+                }}
+                trailing={
+                  line && line.quantity > 0 ? (
                     <label className="flex items-center gap-1">
                       <span className="sr-only">Costo unitario de {flavor.name}</span>
                       <span className="text-xs font-bold text-cocoa-soft">C$</span>
@@ -290,16 +291,9 @@ export function NewPurchasePage() {
                         className="h-9 w-16 rounded-xl bg-cream px-1 text-center text-xs font-extrabold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
                       />
                     </label>
-                  ) : null}
-                  <Stepper
-                    value={line?.quantity ?? 0}
-                    onChange={(v) => {
-                      if (v === 0) removeLine(flavor.id);
-                      else setLine(flavor.id, { quantity: v });
-                    }}
-                  />
-                </div>
-              </li>
+                  ) : null
+                }
+              />
             );
           })}
         </ul>

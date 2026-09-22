@@ -4,13 +4,14 @@ import { inventoryApi, locationsApi, salesApi } from "@/services/api";
 import { formatMoney } from "@/lib/formatting/currency";
 import { useAsync } from "@/hooks/useAsync";
 import { Button } from "@/components/ui/Button";
-import { Stepper } from "@/components/ui/Stepper";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { PaymentSelect } from "@/components/ui/PaymentSelect";
+import { FlavorQuantityRow } from "@/components/ui/FlavorQuantityRow";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { matchesSearch } from "@/lib/utils/search";
+import { isSelectableFlavor } from "@/lib/utils/flavors";
 import { cn } from "@/lib/utils/cn";
 import type { PaymentType, Sale } from "@/types";
 
@@ -80,10 +81,16 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
 
   const effectivePrice = customPrice !== "" ? Number(customPrice) : unitPrice;
 
-  // Sabores filtrables por nombre (sin acentos), misma búsqueda que el resto.
+  // Sabores seleccionables: activos (o ya incluidos en la venta) y filtrables
+  // por nombre sin acentos ni mayúsculas.
   const visibleFlavors = useMemo(
-    () => (inventory.data ?? []).filter((inv) => matchesSearch(query, inv.flavor.name)),
-    [inventory.data, query],
+    () =>
+      (inventory.data ?? []).filter(
+        (inv) =>
+          isSelectableFlavor(inv.flavor, quantities[inv.flavor.id] ?? 0) &&
+          matchesSearch(query, inv.flavor.name),
+      ),
+    [inventory.data, query, quantities],
   );
 
   const selectedLines = useMemo(
@@ -210,32 +217,16 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
           <SearchInput value={query} onChange={setQuery} className="mb-3" />
           <ul className="space-y-2.5">
             {visibleFlavors.map((inv) => (
-              <li
+              <FlavorQuantityRow
                 key={inv.flavor.id}
-                className={cn(
-                  "flex items-center justify-between gap-3 rounded-[1.25rem] bg-white p-3 ring-1 transition-all",
-                  (quantities[inv.flavor.id] ?? 0) > 0
-                    ? "ring-turquoise shadow-soft"
-                    : "ring-cocoa/5",
-                )}
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="text-3xl" aria-hidden="true">
-                    {inv.flavor.emoji ?? "🍦"}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate font-extrabold text-cocoa">{inv.flavor.name}</p>
-                    <p className="text-xs font-semibold text-cocoa-soft">
-                      {inv.available} disponibles
-                    </p>
-                  </div>
-                </div>
-                <Stepper
-                  value={quantities[inv.flavor.id] ?? 0}
-                  onChange={(v) => setQty(inv.flavor.id, v)}
-                  max={Math.max(0, inv.available + (quantities[inv.flavor.id] ?? 0))}
-                />
-              </li>
+                id={inv.flavor.id}
+                name={inv.flavor.name}
+                emoji={inv.flavor.emoji}
+                meta={`${inv.available} disponibles`}
+                quantity={quantities[inv.flavor.id] ?? 0}
+                onChange={(v) => setQty(inv.flavor.id, v)}
+                max={Math.max(0, inv.available + (quantities[inv.flavor.id] ?? 0))}
+              />
             ))}
           </ul>
         </div>

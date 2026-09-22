@@ -43,7 +43,12 @@ export function ExitModal({
   onSaved?: () => void;
 }) {
   const { toast } = useToast();
-  const [flavorId, setFlavorId] = useState(presetFlavorId ?? inventory[0]?.flavor.id ?? "");
+  // Solo sabores activos para nuevas salidas; el preseleccionado se mantiene
+  // aunque esté archivado para poder corregir sus existencias.
+  const options = inventory.filter(
+    (i) => i.flavor.active || i.flavor.id === presetFlavorId,
+  );
+  const [flavorId, setFlavorId] = useState(presetFlavorId ?? options[0]?.flavor.id ?? "");
   const [movementType, setMovementType] = useState<MovementType>("GIFT");
   const [direction, setDirection] = useState<"in" | "out">("out");
   const [quantity, setQuantity] = useState(1);
@@ -112,7 +117,7 @@ export function ExitModal({
     >
       <div className="space-y-4">
         <Select label="Sabor" value={flavorId} onChange={(e) => setFlavorId(e.target.value)}>
-          {inventory.map((i) => (
+          {options.map((i) => (
             <option key={i.flavor.id} value={i.flavor.id}>
               {i.flavor.emoji ?? ""} {i.flavor.name} · {i.available} disponibles
             </option>
