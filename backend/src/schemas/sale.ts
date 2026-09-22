@@ -32,4 +32,8 @@ export const updateSaleSchema = z.object({
 export const saleListQuerySchema = z.object({
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),
+  /** Paginación opcional: si se envía, la respuesta pasa a ser
+   * { items, total, page, limit }. Sin parámetros = lista completa. */
+  page: z.coerce.number().int().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
 });

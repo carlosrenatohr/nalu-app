@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
@@ -28,6 +28,9 @@ const RANGES: { value: Range; label: string; emoji?: string }[] = [
   { value: "all", label: "Todos" },
   { value: "custom", label: "Personalizado" },
 ];
+
+/** Ventas por página; el resto se cargan con "Cargar más". */
+const PAGE_SIZE = 20;
 
 export function SalesPage() {
   const navigate = useNavigate();
@@ -77,12 +80,47 @@ export function SalesPage() {
       break;
   }
 
-  const { data: sales, loading, error, reload } = useAsync(
-    () => salesApi.list(from, to),
+  const { data: firstPage, loading, error, reload: reloadFirst } = useAsync(
+    () => salesApi.listPage(from, to, 1, PAGE_SIZE),
     [from, to],
   );
 
-  const total = (sales ?? []).reduce((acc, s) => acc + s.total, 0);
+  // Páginas adicionales que se acumulan con "Cargar más".
+  const [extraSales, setExtraSales] = useState<Sale[]>([]);
+  const [loadedPages, setLoadedPages] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Cambiar de rango reinicia la acumulación de páginas.
+  useEffect(() => {
+    setExtraSales([]);
+    setLoadedPages(1);
+  }, [from, to]);
+
+  const sales = [...(firstPage?.items ?? []), ...extraSales];
+  const totalCount = firstPage?.total ?? 0;
+  const hasMore = sales.length < totalCount;
+  const total = sales.reduce((acc, s) => acc + s.total, 0);
+
+  /** Recarga completa tras editar/borrar: página 1 y sin acumulado. */
+  function reload() {
+    setExtraSales([]);
+    setLoadedPages(1);
+    reloadFirst();
+  }
+
+  /** Trae la siguiente página y la acumula al final de la lista. */
+  async function loadMore() {
+    setLoadingMore(true);
+    try {
+      const next = await salesApi.listPage(from, to, loadedPages + 1, PAGE_SIZE);
+      setExtraSales((prev) => [...prev, ...next.items]);
+      setLoadedPages((p) => p + 1);
+    } catch {
+      // Sin conexión: el botón queda activo para reintentar.
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
@@ -93,7 +131,9 @@ export function SalesPage() {
         <div>
           <h1 className="text-2xl font-black text-cocoa">Ventas 🍦</h1>
           <p className="text-sm font-semibold text-cocoa-soft">
-            {sales ? `${sales.length} ventas · ${formatMoney(total, currency)}` : "Cargando…"}
+            {loading
+              ? "Cargando…"
+              : `${sales.length}${hasMore ? ` de ${totalCount}` : ""} ventas · ${formatMoney(total, currency)}`}
           </p>
         </div>
         <Button onClick={() => navigate("/sales/new")}>
@@ -155,7 +195,8 @@ export function SalesPage() {
         <PageLoader label="Cargando ventas…" />
       ) : error ? (
         <EmptyState emoji="😅" title="No pudimos cargar las ventas" description={error} />
-      ) : sales && sales.length > 0 ? (
+      ) : sales.length > 0 ? (
+        <>
         <ul className="space-y-3">
           {sales.map((sale: Sale) => (
             <li key={sale.id}>
@@ -206,6 +247,20 @@ export function SalesPage() {
             </li>
           ))}
         </ul>
+        {hasMore ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="w-full"
+          >
+            {loadingMore
+              ? "Cargando…"
+              : `Cargar más (${totalCount - sales.length} restantes)`}
+          </Button>
+        ) : null}
+        </>
       ) : (
         <EmptyState
           emoji="🛒"

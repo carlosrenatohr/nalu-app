@@ -17,6 +17,7 @@ import type {
   NewSaleInput,
   Purchase,
   PurchasesReport,
+  PaginatedSales,
   Sale,
   SalesReport,
   Supplier,
@@ -374,6 +375,37 @@ export const salesApi = {
       if (isNetworkError(err)) {
         const sales = await localDb.sales.toArray();
         return sales.sort((a, b) => (a.saleDate < b.saleDate ? 1 : -1));
+      }
+      throw err;
+    }
+  },
+
+  /**
+   * Lista paginada (page 1-based) para "Cargar más".
+   * Sin conexión: slice local sobre el caché con el mismo orden del
+   * servidor (venta más reciente primero) y total real del rango.
+   */
+  async listPage(
+    from: string | undefined,
+    to: string | undefined,
+    page: number,
+    limit: number,
+  ): Promise<PaginatedSales> {
+    try {
+      return await apiRequest<PaginatedSales>("/sales", {
+        query: { from, to, page: String(page), limit: String(limit) },
+      });
+    } catch (err) {
+      if (isNetworkError(err)) {
+        const all = (await localDb.sales.toArray())
+          .filter((s) => (!from || s.saleDate >= from) && (!to || s.saleDate <= to))
+          .sort(
+            (a, b) =>
+              b.saleDate.localeCompare(a.saleDate) ||
+              b.createdAt.localeCompare(a.createdAt),
+          );
+        const start = (page - 1) * limit;
+        return { items: all.slice(start, start + limit), total: all.length, page, limit };
       }
       throw err;
     }
