@@ -36,6 +36,16 @@ export function DashboardPage() {
     [inventory.data],
   );
 
+  // Catálogo compacto de lo que se puede vender hoy: sabores activos con
+  // stock, del más escaso al más disponible.
+  const availableNow = useMemo(
+    () =>
+      (inventory.data ?? [])
+        .filter((i) => i.flavor.active && i.available > 0)
+        .sort((a, b) => a.available - b.available),
+    [inventory.data],
+  );
+
   const loading = report.loading || inventory.loading;
 
   return (
@@ -133,6 +143,47 @@ export function DashboardPage() {
               Registrar salida
             </Button>
           </div>
+
+          {/* Disponibles ahora: qué puedes vender de un vistazo */}
+          <Card>
+            <CardHeader
+              title="Disponibles ahora"
+              subtitle="Sabores activos con stock para vender"
+              action={
+                <Link to="/inventory" className="text-sm font-bold text-turquoise-deep">
+                  Ver inventario →
+                </Link>
+              }
+            />
+            {availableNow.length > 0 ? (
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {availableNow.slice(0, 6).map((i) => (
+                  <li key={i.flavor.id}>
+                    <Link
+                      to={`/inventory/${i.flavor.id}`}
+                      className="flex items-center gap-2 rounded-2xl bg-cream px-3 py-2.5 transition-colors hover:bg-turquoise/10"
+                    >
+                      <span className="text-xl" aria-hidden="true">
+                        {i.flavor.emoji ?? "🍦"}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-extrabold text-cocoa">
+                          {i.flavor.name}
+                        </span>
+                        <span className="block text-xs font-semibold text-cocoa-soft">
+                          {i.available} disponibles
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-2xl bg-cream p-4 text-center text-sm font-semibold text-cocoa-soft">
+                Sin stock disponible. Registra una compra para tener sabores a la mano.
+              </p>
+            )}
+          </Card>
 
           {/* Alertas de stock bajo */}
           {lowStock.length > 0 ? (

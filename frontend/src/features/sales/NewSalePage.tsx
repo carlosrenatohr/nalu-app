@@ -125,12 +125,15 @@ export function NewSalePage() {
   );
 
   // Solo sabores ACTIVOS y con stock, filtrables por nombre (sin acentos).
+  // Orden: menor stock primero (lo más al límite se ve antes).
   const visibleFlavors = useMemo(
     () =>
-      (inventory.data ?? []).filter(
-        (inv) =>
-          inv.flavor.active && inv.available > 0 && matchesSearch(query, inv.flavor.name),
-      ),
+      (inventory.data ?? [])
+        .filter(
+          (inv) =>
+            inv.flavor.active && inv.available > 0 && matchesSearch(query, inv.flavor.name),
+        )
+        .sort((a, b) => a.available - b.available),
     [inventory.data, query],
   );
 

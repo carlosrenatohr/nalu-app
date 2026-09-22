@@ -78,6 +78,17 @@ describe("Nueva venta (venta rápida)", () => {
     expect(screen.getByText("Oreo")).toBeInTheDocument();
   });
 
+  it("ordena los sabores del más escaso al más disponible", async () => {
+    renderWithProviders(<NewSalePage />);
+    await screen.findByText("Coco");
+    const rows = screen
+      .getAllByRole("listitem")
+      .map((li) => li.textContent ?? "")
+      .filter((t) => t.includes("disponibles"));
+    expect(rows[0]).toContain("Coco"); // 4 disponibles
+    expect(rows[1]).toContain("Oreo"); // 8 disponibles
+  });
+
   it("calcula el total al agregar cantidades", async () => {
     const user = userEvent.setup();
     renderWithProviders(<NewSalePage />);

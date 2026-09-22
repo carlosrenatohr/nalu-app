@@ -81,15 +81,17 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
 
   const effectivePrice = customPrice !== "" ? Number(customPrice) : unitPrice;
 
-  // Sabores seleccionables: activos (o ya incluidos en la venta) y filtrables
-  // por nombre sin acentos ni mayúsculas.
+  // Sabores seleccionables: activos (o ya incluidos en la venta), filtrables
+  // por nombre sin acentos y ordenados del más escaso al más disponible.
   const visibleFlavors = useMemo(
     () =>
-      (inventory.data ?? []).filter(
-        (inv) =>
-          isSelectableFlavor(inv.flavor, quantities[inv.flavor.id] ?? 0) &&
-          matchesSearch(query, inv.flavor.name),
-      ),
+      (inventory.data ?? [])
+        .filter(
+          (inv) =>
+            isSelectableFlavor(inv.flavor, quantities[inv.flavor.id] ?? 0) &&
+            matchesSearch(query, inv.flavor.name),
+        )
+        .sort((a, b) => a.available - b.available),
     [inventory.data, query, quantities],
   );
 

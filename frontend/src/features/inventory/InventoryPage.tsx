@@ -1,15 +1,16 @@
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
 import { inventoryApi } from "@/services/api";
 import { formatMoney } from "@/lib/formatting/currency";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ExitModal } from "./ExitModal";
 import { IconGift, IconPlus } from "@/components/ui/icons";
-import { useState } from "react";
 import type { FlavorInventory } from "@/types";
 
 // ---------------------------------------------------------------------
@@ -22,6 +23,16 @@ export function InventoryPage() {
   const { currency } = useBusiness();
   const { data: inventory, loading, error, reload } = useAsync(() => inventoryApi.list(), []);
   const [exitOpen, setExitOpen] = useState(false);
+  // Orden de las tarjetas: por defecto lo más al límite primero.
+  const [sort, setSort] = useState<"low" | "high" | "name">("low");
+
+  const sorted = useMemo(() => {
+    const list = [...(inventory ?? [])];
+    if (sort === "low") list.sort((a, b) => a.available - b.available);
+    else if (sort === "high") list.sort((a, b) => b.available - a.available);
+    else list.sort((a, b) => a.flavor.name.localeCompare(b.flavor.name, "es"));
+    return list;
+  }, [inventory, sort]);
 
   if (loading) return <PageLoader label="Cargando inventario…" />;
 
@@ -46,8 +57,20 @@ export function InventoryPage() {
       {error ? (
         <EmptyState emoji="😅" title="No pudimos cargar el inventario" description={error} />
       ) : inventory && inventory.length > 0 ? (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {inventory.map((item: FlavorInventory) => {
+        <>
+          <div className="sm:max-w-56">
+            <Select
+              label="Ordenar"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as "low" | "high" | "name")}
+            >
+              <option value="low">Menor stock primero</option>
+              <option value="high">Mayor stock primero</option>
+              <option value="name">Nombre (A–Z)</option>
+            </Select>
+          </div>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {sorted.map((item: FlavorInventory) => {
             const color = item.flavor.color ?? "#F5E9D8";
             return (
               <li key={item.flavor.id}>
@@ -73,7 +96,8 @@ export function InventoryPage() {
               </li>
             );
           })}
-        </ul>
+          </ul>
+        </>
       ) : (
         <EmptyState
           emoji="🍧"

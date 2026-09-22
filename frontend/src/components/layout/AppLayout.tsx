@@ -107,6 +107,7 @@ function BottomNav() {
 
 export function AppLayout() {
   const { business } = useBusiness();
+  const navigate = useNavigate();
   return (
     <div className="app-backdrop min-h-dvh">
       <div className="mx-auto flex max-w-7xl">
@@ -117,7 +118,17 @@ export function AppLayout() {
             <button type="button" aria-label="Ir al inicio">
               <Logo name={business?.name ?? "Nalu"} />
             </button>
-            <SyncChip />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Registrar compra"
+                onClick={() => navigate("/purchases/new")}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-mango text-white shadow-pop transition-transform active:scale-95"
+              >
+                <IconCart className="h-5 w-5" />
+              </button>
+              <SyncChip />
+            </div>
           </header>
 
           <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 lg:px-8 lg:pb-10 lg:pt-8">
