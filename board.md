@@ -96,7 +96,7 @@ Add a row to the appropriate project section:
 | F6 | Offline: cola de edición de compras/proveedores + fix recursión + `lastError` visible | ✅ Done | #27 |
 | F7 | Integridad SQLite: `db:integrity` + `db:backup:local` + docs | ✅ Done | #28 |
 | F8 | "Ajustar stock" desde Sabores vía `ExitModal` (motivo obligatorio) + emoji solo en modal | ✅ Done | #29 |
-| F9 | Sweep final: gate completo, regresión de reglas críticas, board/docs/memory al día | 🔄 In Progress | — |
+| F9 | Sweep final: gate completo, regresión de reglas críticas, board/docs/memory al día | ✅ Done | #30 |
 
 ## Releases
 
