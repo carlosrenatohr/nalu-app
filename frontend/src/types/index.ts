@@ -97,6 +97,15 @@ export interface Sale {
   updatedAt: string;
 }
 
+/** Respuesta de GET /sales cuando se envían page/limit. */
+export interface PaginatedSales {
+  items: Sale[];
+  /** Total de ventas que coinciden con el filtro (todas las páginas). */
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface PurchaseItem {
   id: string;
   purchaseId: string;

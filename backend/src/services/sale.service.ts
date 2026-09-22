@@ -130,6 +130,28 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
     return salesList.map((sale) => ({ ...sale, profit: estimateProfit(sale) }));
   }
 
+  /** Lista paginada para la vista de ventas ("Cargar más"). */
+  async function listPaged(
+    from?: string,
+    to?: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{ items: Sale[]; total: number; page: number; limit: number }> {
+    const { items, total } = await saleRepo.listPaged(
+      await getBusinessId(),
+      from,
+      to,
+      page,
+      limit,
+    );
+    return {
+      items: items.map((sale) => ({ ...sale, profit: estimateProfit(sale) })),
+      total,
+      page,
+      limit,
+    };
+  }
+
   async function getById(id: string): Promise<Sale | null> {
     return saleRepo.getById(await getBusinessId(), id);
   }
@@ -301,5 +323,5 @@ export function createSaleService(deps: { db: DrizzleDb; getBusinessId: () => Pr
     );
   }
 
-  return { create, list, getById, delete: deleteSale, update, estimateProfit };
+  return { create, list, listPaged, getById, delete: deleteSale, update, estimateProfit };
 }

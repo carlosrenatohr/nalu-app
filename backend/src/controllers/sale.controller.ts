@@ -8,7 +8,19 @@ import { param } from "../utils/request";
 export function createSaleControllers(services: Services) {
   return {
     list: async (_req: Request, res: Response): Promise<void> => {
-      const { from, to } = parsedQuery<{ from?: string; to?: string }>(res);
+      const { from, to, page, limit } = parsedQuery<{
+        from?: string;
+        to?: string;
+        page?: number;
+        limit?: number;
+      }>(res);
+      // Con page/limit responde paginado; sin ellos, la lista completa
+      // (compatibilidad con el resto de consumidores y el modo offline).
+      if (page !== undefined || limit !== undefined) {
+        const result = await services.sales.listPaged(from, to, page ?? 1, limit ?? 20);
+        res.json(ok(result));
+        return;
+      }
       const sales = await services.sales.list(from, to);
       res.json(ok(sales));
     },

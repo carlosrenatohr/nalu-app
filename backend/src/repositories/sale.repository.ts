@@ -13,6 +13,19 @@ export interface NewSaleItem {
   subtotal: number;
 }
 
+/** Columnas comunes al listar ventas (una sola fuente de verdad). */
+const SALE_COLUMNS = {
+  id: sales.id,
+  businessId: sales.businessId,
+  saleDate: sales.saleDate,
+  location: sales.location,
+  notes: sales.notes,
+  total: sales.total,
+  paymentType: sales.paymentType,
+  createdAt: sales.createdAt,
+  updatedAt: sales.updatedAt,
+};
+
 export function createSaleRepository(db: DrizzleDb) {
   return {
     async list(
@@ -25,22 +38,46 @@ export function createSaleRepository(db: DrizzleDb) {
       if (to) conditions.push(sql`${sales.saleDate} <= ${to}`);
 
       const saleRows = await db
-        .select({
-          id: sales.id,
-          businessId: sales.businessId,
-          saleDate: sales.saleDate,
-          location: sales.location,
-          notes: sales.notes,
-          total: sales.total,
-          paymentType: sales.paymentType,
-          createdAt: sales.createdAt,
-          updatedAt: sales.updatedAt,
-        })
+        .select(SALE_COLUMNS)
         .from(sales)
         .where(and(...conditions))
         .orderBy(sql`${sales.saleDate} DESC, ${sales.createdAt} DESC`);
 
       return this.attachItems(saleRows as unknown as Sale[]);
+    },
+
+    /**
+     * Versión paginada de list: devuelve la página pedida y el total de
+     * coincidencias para que el cliente sepa si quedan más ("Cargar más").
+     * Mismo orden que list (fecha de venta y creación descendentes).
+     */
+    async listPaged(
+      businessId: string,
+      from: string | undefined,
+      to: string | undefined,
+      page: number,
+      limit: number,
+    ): Promise<{ items: Sale[]; total: number }> {
+      const conditions = [eq(sales.businessId, businessId)];
+      if (from) conditions.push(sql`${sales.saleDate} >= ${from}`);
+      if (to) conditions.push(sql`${sales.saleDate} <= ${to}`);
+      const where = and(...conditions);
+
+      const countRows = await db
+        .select({ total: sql<number>`count(*)` })
+        .from(sales)
+        .where(where);
+      const total = Number(countRows[0]?.total ?? 0);
+
+      const saleRows = await db
+        .select(SALE_COLUMNS)
+        .from(sales)
+        .where(where)
+        .orderBy(sql`${sales.saleDate} DESC, ${sales.createdAt} DESC`)
+        .limit(limit)
+        .offset((page - 1) * limit);
+
+      return { items: await this.attachItems(saleRows as unknown as Sale[]), total };
     },
 
     async getById(businessId: string, id: string): Promise<Sale | null> {
