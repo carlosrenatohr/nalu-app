@@ -22,29 +22,30 @@ Add a row to the appropriate project section:
 
 | # | Task | Spec | Branch | Status | PR |
 |---|---|---|---|---|---|
-|  01  |  Offline-first storage with Dexie + outbox  |  `.specs/offline-storage.md`  |  —  |  📋 Backlog  |  —  |
+|  01  |  Offline-first storage with Dexie + outbox  |  `.specs/offline-storage.md`  |  —  |  ✅ Done  |  —  |
 | 02 | API client typed with Zod schemas | `.specs/api-schemas.md` | — | 📋 Backlog | — |
-| 03 | PWA manifest y service worker configuration | `.specs/pwa-config.md` | — | 📋 Backlog | — |
-| 04 | Spanish UI localization — mobile-first | `.specs/ui-localization.md` | — | 📋 Backlog | — |
-| 05 | Tailwind v4 theme tokens — Nalu color palette | `.specs/design-tokens.md` | — | 📋 Backlog | — |
+> **02 (deuda real):** el cliente ya está tipado por TS (`frontend/src/services/api/`), pero la validación **Zod vive solo en backend** (`backend/src/schemas/`). Falta compartir esquemas Zod al frontend (`frontend/src/lib/validation/` reservado).
+| 03 | PWA manifest y service worker configuration | `.specs/pwa-config.md` | — | ✅ Done | — |
+| 04 | Spanish UI localization — mobile-first | `.specs/ui-localization.md` | — | ✅ Done | — |
+| 05 | Tailwind v4 theme tokens — Nalu color palette | `.specs/design-tokens.md` | — | ✅ Done | — |
 
 ## backend
 
 | # | Task | Spec | Branch | Status | PR |
 |---|---|---|---|---|---|
-| 10 | D1 migrations + seed scripts | `.specs/d1-migrations.md` | — | 📋 Backlog | — |
-| 11 | Zod validation for sale/commerce entities | `.specs/zod-validation.md` | — | 📋 Backlog | — |
-| 12 | Atomic sale transaction — entity + items + movements | `.specs/atomic-transaction.md` | — | 📋 Backlog | — |
-| 13 | Inventory model — signed movements (no counters) | `.specs/inventory-model.md` | — | 📋 Backlog | — |
-| 14 | Historical cost snapshot — freeze at sale time | `.specs/cost-freeze.md` | — | 📋 Backlog | — |
+| 10 | D1 migrations + seed scripts | `.specs/d1-migrations.md` | — | ✅ Done | — |
+| 11 | Zod validation for sale/commerce entities | `.specs/zod-validation.md` | — | ✅ Done | — |
+| 12 | Atomic sale transaction — entity + items + movements | `.specs/atomic-transaction.md` | — | ✅ Done | — |
+| 13 | Inventory model — signed movements (no counters) | `.specs/inventory-model.md` | — | ✅ Done | — |
+| 14 | Historical cost snapshot — freeze at sale time | `.specs/cost-freeze.md` | — | ✅ Done | — |
 
 ## docs
 
 | # | Task | Spec | Branch | Status | PR |
 |---|---|---|---|---|---|
-| 20 | Spanish documentation — business rules | `.specs/business-rules.md` | — | 📋 Backlog | — |
-| 21 | Deployment guide — Cloudflare Workers + D1 | `.specs/deployment.md` | — | 📋 Backlog | — |
-| 22 | Codebase Memory verification protocol | `AGENTS.md` (CM) | — | 📋 Backlog | — |
+| 20 | Spanish documentation — business rules | `.specs/business-rules.md` | — | ✅ Done | — |
+| 21 | Deployment guide — Cloudflare Workers + D1 | `.specs/deployment.md` | — | ✅ Done | — |
+| 22 | Codebase Memory verification protocol | `AGENTS.md` (CM) | — | ✅ Done | — |
 
 ## Workflow & Standards
 
@@ -104,6 +105,6 @@ Add a row to the appropriate project section:
 
 | # | Tarea | Status | PR |
 |---|---|---|---|
-| CI-1 | **Hang del job E2E en CI.** El paso "Tests e2e" queda `in_progress` 20+ min aunque el suite pasa local (~34s). Causa: el `webServer` del backend usa `tsx src/server.ts` (pnpm→tsx→node) y el hijo que abre :3002 queda huérfano en el teardown → Playwright espera para siempre. Red de seguridad ya aplicada: `globalTimeout: 300_000` (#14). | 🔜 Ready | — |
+| CI-1 | **Hang del job E2E en CI.** El paso "Tests e2e" queda `in_progress` 20+ min aunque el suite pasa local (~34s). Causa: el `webServer` del backend usa `tsx src/server.ts` (pnpm→tsx→node) y el hijo que abre :3002 queda huérfano en el teardown → Playwright espera para siempre. Red de seguridad ya aplicada: `globalTimeout: 300_000` (#14). **Mitigación aplicada:** job e2e pausado en CI (`7c94dfa`); los e2e corren manualmente (`docs/TESTING.md`). Fix de raíz sigue pendiente. | 🔜 Ready | — |
 | CI-2 | **Fix de raíz del hang (opción 2).** Cambiar el `webServer` del backend a correr el build compilado: `rm -f data/e2e.db* && pnpm exec tsc -p tsconfig.build.json && node dist/server.js` (proceso único que Playwright cierra limpio). Validar `pnpm test:e2e` local y en CI. | 📋 Backlog | — |
 | CI-3 | **Logs/diagnóstico CI.** El run colgado se inspecciona con `gh run view <id> --log` y `wrangler tail nalu-api` (los errores de negocio salen por `console.error` en `error-handler.ts`). | 📋 Backlog | — |
