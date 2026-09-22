@@ -37,6 +37,10 @@ export function createServices(deps: { db: DrizzleDb; getBusinessId: () => Promi
     deleteSale: (payload) => sales.delete(payload.id as string),
     updateFlavor: (payload) => flavors.update(payload.id as string, payload as never),
     deleteFlavor: (payload) => flavors.delete(payload.id as string).then((r) => ({ id: r.flavor.id })),
+    updatePurchase: (payload) => purchases.update(payload.id as string, payload as never),
+    deletePurchase: (payload) => purchases.delete(payload.id as string),
+    updateSupplier: (payload) => suppliers.update(payload.id as string, payload as never),
+    deleteSupplier: (payload) => suppliers.delete(payload.id as string).then((r) => ({ id: r.supplier.id })),
   });
 
   return { auth, business, flavors, suppliers, locations, inventory, sales, purchases, reports, sync };

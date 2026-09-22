@@ -687,12 +687,13 @@ describe("Sincronización offline (outbox)", () => {
     expect(coco).toBeUndefined();
   });
 
-  it("rechaza update offline para tipos no editables (compra)", async () => {
+  it("rechaza update offline para tipos no editables (movement)", async () => {
+    // Compras y proveedores SÍ admiten edición offline desde F6; movement no.
     const res = await api("post", "/api/sync/operations")
       .send({
         operations: [
           {
-            type: "purchase",
+            type: "movement",
             verb: "update",
             opId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
             payload: { id: "50000000-0000-4000-8000-000000000001", notes: "x" },

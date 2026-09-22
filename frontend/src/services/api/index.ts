@@ -118,34 +118,36 @@ export const flavorsApi = {
   },
 
   async create(input: { name: string; emoji?: string; color?: string; costPrice?: number; salePrice?: number; minStock?: number }): Promise<Flavor> {
-    if (!isOnline()) {
-      const flavor: Flavor = {
-        id: newId(),
-        businessId: "",
-        name: input.name,
-        slug: "",
-        emoji: input.emoji ?? null,
-        color: input.color ?? null,
-        costPrice: input.costPrice ?? null,
-        salePrice: input.salePrice ?? null,
-        minStock: input.minStock ?? 10,
-        active: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await localDb.flavors.put(flavor);
-      await enqueue("flavor", { ...input, id: flavor.id });
-      syncEngine.requestSync();
-      return flavor;
+    if (isOnline()) {
+      try {
+        const flavor = await apiRequest<Flavor>("/flavors", { method: "POST", body: input });
+        await localDb.flavors.put(flavor);
+        return flavor;
+      } catch (err) {
+        // La red cayó con la interfaz aún "en línea": NO reintentar el
+        // servidor en bucle (antes `this.create()` recursaba sin fin);
+        // caemos directo a la vía offline de abajo.
+        if (!isNetworkError(err)) throw err;
+      }
     }
-    try {
-      const flavor = await apiRequest<Flavor>("/flavors", { method: "POST", body: input });
-      await localDb.flavors.put(flavor);
-      return flavor;
-    } catch (err) {
-      if (isNetworkError(err)) return this.create(input);
-      throw err;
-    }
+    const flavor: Flavor = {
+      id: newId(),
+      businessId: "",
+      name: input.name,
+      slug: "",
+      emoji: input.emoji ?? null,
+      color: input.color ?? null,
+      costPrice: input.costPrice ?? null,
+      salePrice: input.salePrice ?? null,
+      minStock: input.minStock ?? 10,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await localDb.flavors.put(flavor);
+    await enqueue("flavor", { ...input, id: flavor.id });
+    syncEngine.requestSync();
+    return flavor;
   },
 
   async update(id: string, input: Partial<{ name: string; emoji: string; color: string; costPrice: number; salePrice: number; minStock: number; active: boolean }>): Promise<Flavor> {
@@ -198,45 +200,76 @@ export const suppliersApi = {
   },
 
   async create(input: { name: string; contact?: string; notes?: string }): Promise<Supplier> {
-    if (!isOnline()) {
-      const supplier: Supplier = {
-        id: newId(),
-        businessId: "",
-        name: input.name,
-        contact: input.contact ?? null,
-        notes: input.notes ?? null,
-        active: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await localDb.suppliers.put(supplier);
-      await enqueue("supplier", { ...input, id: supplier.id });
-      syncEngine.requestSync();
-      return supplier;
+    if (isOnline()) {
+      try {
+        const supplier = await apiRequest<Supplier>("/suppliers", { method: "POST", body: input });
+        await localDb.suppliers.put(supplier);
+        return supplier;
+      } catch (err) {
+        // Red cayó en caliente: sin recursión (antes `this.create()`
+        // podía reintentar el servidor indefinidamente) → cola offline.
+        if (!isNetworkError(err)) throw err;
+      }
     }
-    try {
-      const supplier = await apiRequest<Supplier>("/suppliers", { method: "POST", body: input });
-      await localDb.suppliers.put(supplier);
-      return supplier;
-    } catch (err) {
-      if (isNetworkError(err)) return this.create(input);
-      throw err;
-    }
-  },
-
-  async update(id: string, input: Partial<{ name: string; contact: string | null; notes: string | null; active: boolean }>): Promise<Supplier> {
-    const supplier = await apiRequest<Supplier>(`/suppliers/${id}`, { method: "PATCH", body: input });
+    const supplier: Supplier = {
+      id: newId(),
+      businessId: "",
+      name: input.name,
+      contact: input.contact ?? null,
+      notes: input.notes ?? null,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
     await localDb.suppliers.put(supplier);
+    await enqueue("supplier", { ...input, id: supplier.id });
+    syncEngine.requestSync();
     return supplier;
   },
 
-  /** Elimina un proveedor: lo borra físicamente si no tiene compras, o lo archiva si conserva historial. */
+  async update(id: string, input: Partial<{ name: string; contact: string | null; notes: string | null; active: boolean }>): Promise<Supplier> {
+    if (isOnline()) {
+      try {
+        const supplier = await apiRequest<Supplier>(`/suppliers/${id}`, { method: "PATCH", body: input });
+        await localDb.suppliers.put(supplier);
+        return supplier;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+      }
+    }
+    // Cola offline: refleja el cambio local y lo encola para después.
+    const existing = await localDb.suppliers.get(id);
+    const updated = existing
+      ? { ...existing, ...input, updatedAt: new Date().toISOString() }
+      : undefined;
+    if (updated) await localDb.suppliers.put(updated);
+    await enqueue("supplier", { ...input, id }, "update");
+    syncEngine.requestSync();
+    return updated ?? ({ id } as Supplier);
+  },
+
+  /**
+   * Elimina un proveedor: lo borra físicamente si no tiene compras, o lo
+   * archiva si conserva historial. Offline encola el borrado (el servidor
+   * decide al sincronizar) y oculta la fila localmente.
+   */
   async delete(id: string): Promise<{ supplier: Supplier; archived: boolean }> {
-    const result = await apiRequest<{ supplier: Supplier; archived: boolean }>(`/suppliers/${id}`, {
-      method: "DELETE",
-    });
+    if (isOnline()) {
+      try {
+        const result = await apiRequest<{ supplier: Supplier; archived: boolean }>(`/suppliers/${id}`, {
+          method: "DELETE",
+        });
+        await localDb.suppliers.delete(id);
+        return result;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+      }
+    }
+    const existing = await localDb.suppliers.get(id);
     await localDb.suppliers.delete(id);
-    return result;
+    await enqueue("supplier", { id }, "delete");
+    syncEngine.requestSync();
+    return { supplier: existing ?? ({ id } as Supplier), archived: false };
   },
 };
 
@@ -330,38 +363,39 @@ export const inventoryApi = {
       input.movementType === "RETURN" ||
       (input.movementType === "ADJUSTMENT" && input.direction === "in");
     const signedQuantity = isIn ? input.quantity : -input.quantity;
-    if (!isOnline()) {
-      const movement: InventoryMovement = {
-        ...payload,
-        businessId: "",
-        quantity: signedQuantity,
-        unitCost: null,
-        referenceId: null,
-        notes: payload.notes ?? null,
-        createdAt: new Date().toISOString(),
-      };
-      await localDb.movements.put(movement);
-      await applyLocalInventoryDelta([
-        { flavorId: input.flavorId, delta: movement.quantity },
-      ]);
-      await enqueue("movement", payload);
-      syncEngine.requestSync();
-      return movement;
+    if (isOnline()) {
+      try {
+        const movement = await apiRequest<InventoryMovement>("/inventory/movements", {
+          method: "POST",
+          body: payload,
+        });
+        await localDb.movements.put(movement);
+        await applyLocalInventoryDelta([
+          { flavorId: input.flavorId, delta: movement.quantity },
+        ]);
+        return movement;
+      } catch (err) {
+        // Red cayó en caliente: caemos a la vía offline sin recursar
+        // (antes `this.registerMovement()` podía reintentar sin fin).
+        if (!isNetworkError(err)) throw err;
+      }
     }
-    try {
-      const movement = await apiRequest<InventoryMovement>("/inventory/movements", {
-        method: "POST",
-        body: payload,
-      });
-      await localDb.movements.put(movement);
-      await applyLocalInventoryDelta([
-        { flavorId: input.flavorId, delta: movement.quantity },
-      ]);
-      return movement;
-    } catch (err) {
-      if (isNetworkError(err)) return this.registerMovement(input);
-      throw err;
-    }
+    const movement: InventoryMovement = {
+      ...payload,
+      businessId: "",
+      quantity: signedQuantity,
+      unitCost: null,
+      referenceId: null,
+      notes: payload.notes ?? null,
+      createdAt: new Date().toISOString(),
+    };
+    await localDb.movements.put(movement);
+    await applyLocalInventoryDelta([
+      { flavorId: input.flavorId, delta: movement.quantity },
+    ]);
+    await enqueue("movement", payload);
+    syncEngine.requestSync();
+    return movement;
   },
 };
 
@@ -528,7 +562,9 @@ async function updateLocalSale(id: string, input: Partial<NewSaleInput>): Promis
   if (!existing) return;
 
   if (input.items) {
-    const oldDeltas = existing.items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity }));
+    // Corrige el inventario: devolver la venta vieja (+) y descontar la
+    // nueva (−). Neto = vieja − nueva por sabor.
+    const oldDeltas = existing.items.map((i) => ({ flavorId: i.flavorId, delta: i.quantity }));
     const newDeltas = input.items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity }));
     const map = new Map<string, number>();
     for (const d of [...oldDeltas, ...newDeltas]) {
@@ -576,6 +612,60 @@ async function updateLocalSale(id: string, input: Partial<NewSaleInput>): Promis
   }
 }
 
+/** Aplica la edición de compra offline: delta de inventario (neto = nuevo − viejo) y documento local. */
+async function updateLocalPurchase(id: string, input: Partial<NewPurchaseInput>): Promise<void> {
+  const existing = await localDb.purchases.get(id);
+  if (!existing) return;
+
+  const scalars: Partial<Pick<Purchase, "purchaseDate" | "supplierId" | "notes" | "paymentType">> = {};
+  if (input.purchaseDate !== undefined) scalars.purchaseDate = input.purchaseDate;
+  if (input.supplierId !== undefined) scalars.supplierId = input.supplierId;
+  if (input.notes !== undefined) scalars.notes = input.notes;
+  if (input.paymentType !== undefined) scalars.paymentType = input.paymentType;
+
+  if (input.items && input.items.length > 0) {
+    // La compra aportaba stock (+viejo); al editar: quitar lo viejo (−)
+    // y sumar lo nuevo (+). Neto = nuevo − viejo por sabor.
+    const oldDeltas = existing.items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity }));
+    const newDeltas = input.items.map((i) => ({ flavorId: i.flavorId, delta: i.quantity }));
+    const map = new Map<string, number>();
+    for (const d of [...oldDeltas, ...newDeltas]) {
+      map.set(d.flavorId, (map.get(d.flavorId) ?? 0) + d.delta);
+    }
+    await applyLocalInventoryDelta(
+      Array.from(map.entries()).map(([flavorId, delta]) => ({ flavorId, delta })),
+    );
+
+    const existingById = new Map(existing.items.map((i) => [i.flavorId, i]));
+    const items = input.items.map((it) => {
+      const prev = existingById.get(it.flavorId);
+      return {
+        id: prev?.id ?? newId(),
+        purchaseId: id,
+        flavorId: it.flavorId,
+        flavorName: prev?.flavorName,
+        quantity: it.quantity,
+        unitCost: it.unitCost,
+        subtotal: it.quantity * it.unitCost,
+      };
+    });
+    const totalCost = items.reduce((acc, i) => acc + i.subtotal, 0);
+    await localDb.purchases.put({
+      ...existing,
+      ...scalars,
+      items,
+      totalCost,
+      updatedAt: new Date().toISOString(),
+    });
+  } else {
+    await localDb.purchases.put({
+      ...existing,
+      ...scalars,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+}
+
 export const purchasesApi = {
   async list(from?: string, to?: string): Promise<Purchase[]> {
     try {
@@ -593,59 +683,96 @@ export const purchasesApi = {
 
   async create(input: NewPurchaseInput): Promise<Purchase> {
     const payload = { ...input, id: newId() };
-    if (!isOnline()) {
-      const items = input.items.map((it) => ({
-        id: newId(),
-        purchaseId: payload.id,
-        flavorId: it.flavorId,
-        quantity: it.quantity,
-        unitCost: it.unitCost,
-        subtotal: it.quantity * it.unitCost,
-      }));
-      const purchase: Purchase = {
-        ...payload,
-        businessId: "",
-        notes: input.notes ?? null,
-        totalCost: items.reduce((acc, i) => acc + i.subtotal, 0),
-        paymentType: payload.paymentType ?? "cash",
-        items,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await localDb.purchases.put(purchase);
-      await applyLocalInventoryDelta(
-        input.items.map((i) => ({ flavorId: i.flavorId, delta: i.quantity })),
-      );
-      await enqueue("purchase", payload);
-      syncEngine.requestSync();
-      return purchase;
+    if (isOnline()) {
+      try {
+        const purchase = await apiRequest<Purchase>("/purchases", { method: "POST", body: input });
+        await localDb.purchases.put(purchase);
+        await refreshInventoryCache();
+        return purchase;
+      } catch (err) {
+        // Red cayó en caliente: caemos a la cola offline SIN recursar
+        // (antes `this.create()` podía reintentar el servidor sin fin).
+        if (!isNetworkError(err)) throw err;
+      }
     }
-    try {
-      const purchase = await apiRequest<Purchase>("/purchases", { method: "POST", body: input });
-      await localDb.purchases.put(purchase);
-      await refreshInventoryCache();
-      return purchase;
-    } catch (err) {
-      if (isNetworkError(err)) return this.create(input);
-      throw err;
-    }
+    const items = input.items.map((it) => ({
+      id: newId(),
+      purchaseId: payload.id,
+      flavorId: it.flavorId,
+      quantity: it.quantity,
+      unitCost: it.unitCost,
+      subtotal: it.quantity * it.unitCost,
+    }));
+    const purchase: Purchase = {
+      ...payload,
+      businessId: "",
+      notes: input.notes ?? null,
+      totalCost: items.reduce((acc, i) => acc + i.subtotal, 0),
+      paymentType: payload.paymentType ?? "cash",
+      items,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await localDb.purchases.put(purchase);
+    await applyLocalInventoryDelta(
+      input.items.map((i) => ({ flavorId: i.flavorId, delta: i.quantity })),
+    );
+    await enqueue("purchase", payload);
+    syncEngine.requestSync();
+    return purchase;
   },
 
   async update(id: string, input: Partial<NewPurchaseInput>): Promise<Purchase> {
-    const purchase = await apiRequest<Purchase>(`/purchases/${id}`, {
-      method: "PATCH",
-      body: input,
-    });
-    await localDb.purchases.put(purchase);
-    await refreshInventoryCache();
-    return purchase;
+    if (isOnline()) {
+      try {
+        const purchase = await apiRequest<Purchase>(`/purchases/${id}`, {
+          method: "PATCH",
+          body: input,
+        });
+        await localDb.purchases.put(purchase);
+        await refreshInventoryCache();
+        return purchase;
+      } catch (err) {
+        // Red cayó en caliente → misma cola que el modo offline.
+        if (!isNetworkError(err)) throw err;
+      }
+    }
+    // Cola offline: refleja el cambio localmente (con su delta de
+    // inventario si cambiaron los ítems) y lo encola; el servidor es la
+    // fuente de verdad al sincronizar.
+    await enqueue("purchase", { ...input, id }, "update");
+    await updateLocalPurchase(id, input);
+    syncEngine.requestSync();
+    return (await localDb.purchases.get(id)) ?? ({ id } as Purchase);
   },
 
+  /**
+   * Elimina la compra. Offline replica el servidor: baja del stock lo que
+   * la compra había sumado y encola el borrado; si el servidor la
+   * rechaza (INSUFFICIENT_INVENTORY) la op queda fallida y visible en
+   * "Cambios pendientes".
+   */
   async delete(id: string): Promise<Purchase> {
-    const purchase = await apiRequest<Purchase>(`/purchases/${id}`, { method: "DELETE" });
-    await localDb.purchases.delete(id);
-    await refreshInventoryCache();
-    return purchase;
+    if (isOnline()) {
+      try {
+        const purchase = await apiRequest<Purchase>(`/purchases/${id}`, { method: "DELETE" });
+        await localDb.purchases.delete(id);
+        await refreshInventoryCache();
+        return purchase;
+      } catch (err) {
+        if (!isNetworkError(err)) throw err;
+      }
+    }
+    const existing = await localDb.purchases.get(id);
+    if (existing) {
+      await applyLocalInventoryDelta(
+        existing.items.map((i) => ({ flavorId: i.flavorId, delta: -i.quantity })),
+      );
+      await localDb.purchases.delete(id);
+    }
+    await enqueue("purchase", { id }, "delete");
+    syncEngine.requestSync();
+    return existing ?? ({ id } as Purchase);
   },
 };
 

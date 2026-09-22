@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { syncEngine } from "@/lib/offline/syncEngine";
-import { IconSync, IconWifi, IconWifiOff } from "../ui/icons";
+import { IconAlert, IconSync, IconWifi, IconWifiOff } from "../ui/icons";
 import { PendingChangesModal } from "./PendingChangesModal";
 
 // ---------------------------------------------------------------------
 // Indicador de sincronización SIEMPRE visible. Al hacer clic abre el
 // detalle de los cambios pendientes (qué, estado y opción de descartar).
-// Estados: En línea · Sin conexión · Cambios pendientes · Sincronizando…
+// Estados: En línea · Sin conexión · Error al sincronizar · Cambios
+// pendientes · Sincronizando…
 // ---------------------------------------------------------------------
 export function SyncChip() {
   const state = useSyncStatus();
@@ -39,6 +40,22 @@ export function SyncChip() {
         </button>
         <PendingChangesModal open={detailsOpen} onClose={() => setDetailsOpen(false)} />
       </>
+    );
+  }
+
+  // Último intento de sincronización falló (red inestable, 500…): el
+  // motivo va en `title` y el clic fuerza un reintento inmediato.
+  if (state.lastError) {
+    return (
+      <button
+        type="button"
+        onClick={() => void syncEngine.sync()}
+        title={state.lastError}
+        className="flex min-h-9 items-center gap-1.5 rounded-full bg-strawberry/15 px-3 text-xs font-bold text-strawberry"
+      >
+        <IconAlert className="h-4 w-4" />
+        Error al sincronizar · Reintentar
+      </button>
     );
   }
 

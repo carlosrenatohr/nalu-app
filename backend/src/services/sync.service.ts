@@ -19,7 +19,8 @@ export interface SyncOperationResult {
   message?: string;
 }
 
-const EDITABLE: SyncType[] = ["sale", "flavor"];
+/** Tipos con cola de edición offline (update/delete en el outbox). */
+type EditableSyncType = "sale" | "flavor" | "purchase" | "supplier";
 
 /**
  * Aplica operaciones del outbox offline.
@@ -44,6 +45,10 @@ export function createSyncService(deps: {
   deleteSale: (payload: SyncOperation["payload"]) => Promise<{ id: string }>;
   updateFlavor: (payload: SyncOperation["payload"]) => Promise<{ id: string }>;
   deleteFlavor: (payload: SyncOperation["payload"]) => Promise<{ id: string }>;
+  updatePurchase: (payload: SyncOperation["payload"]) => Promise<{ id: string }>;
+  deletePurchase: (payload: SyncOperation["payload"]) => Promise<{ id: string }>;
+  updateSupplier: (payload: SyncOperation["payload"]) => Promise<{ id: string }>;
+  deleteSupplier: (payload: SyncOperation["payload"]) => Promise<{ id: string }>;
 }) {
   const { db } = deps;
   const syncRepo = createSyncRepository(db);
@@ -55,13 +60,17 @@ export function createSyncService(deps: {
     flavor: deps.applyFlavor,
     supplier: deps.applySupplier,
   };
-  const updateAppliers: Record<"sale" | "flavor", (payload: SyncOperation["payload"]) => Promise<{ id: string }>> = {
+  const updateAppliers: Record<EditableSyncType, (payload: SyncOperation["payload"]) => Promise<{ id: string }>> = {
     sale: deps.updateSale,
     flavor: deps.updateFlavor,
+    purchase: deps.updatePurchase,
+    supplier: deps.updateSupplier,
   };
-  const deleteAppliers: Record<"sale" | "flavor", (payload: SyncOperation["payload"]) => Promise<{ id: string }>> = {
+  const deleteAppliers: Record<EditableSyncType, (payload: SyncOperation["payload"]) => Promise<{ id: string }>> = {
     sale: deps.deleteSale,
     flavor: deps.deleteFlavor,
+    purchase: deps.deletePurchase,
+    supplier: deps.deleteSupplier,
   };
 
   async function applyOperations(operations: SyncOperation[]): Promise<SyncOperationResult[]> {
@@ -84,10 +93,10 @@ export function createSyncService(deps: {
         let entity: { id: string };
         if (!isEdit) {
           entity = await createAppliers[op.type](op.payload);
-        } else if (verb === "update" && EDITABLE.includes(op.type)) {
-          entity = await updateAppliers[op.type as "sale" | "flavor"](op.payload);
+        } else if (verb === "update") {
+          entity = await updateAppliers[op.type as EditableSyncType](op.payload);
         } else {
-          entity = await deleteAppliers[op.type as "sale" | "flavor"](op.payload);
+          entity = await deleteAppliers[op.type as EditableSyncType](op.payload);
         }
         // 3. Registro de la operación aplicada
         await syncRepo.create({

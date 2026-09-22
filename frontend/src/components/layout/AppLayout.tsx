@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router";
 import { useBusiness } from "@/hooks/useBusiness";
 import { SyncChip } from "./SyncChip";
+import { ReconnectBanner } from "./ReconnectBanner";
 import { IconPopsicle, IconHome, IconCart, IconBox, IconChart, IconMore } from "../ui/icons";
 import { cn } from "@/lib/utils/cn";
 
@@ -130,6 +131,9 @@ export function AppLayout() {
               <SyncChip />
             </div>
           </header>
+
+          {/* Aviso breve al volver la conexión (la cola se sincroniza sola). */}
+          <ReconnectBanner />
 
           <main className="mx-auto w-full max-w-3xl px-4 pb-28 pt-4 lg:px-8 lg:pb-10 lg:pt-8">
             <Outlet />

@@ -41,4 +41,27 @@ describe("revertPendingOp", () => {
     await localDb.outbox.update(SALE_ID, { status: "synced" });
     expect(await revertPendingOp(SALE_ID)).toBe(false);
   });
+
+  it("descartar una actualización solo quita la op y conserva la entidad local", async () => {
+    await localDb.suppliers.clear();
+    const supplierId = "30000000-0000-4000-8000-000000000001";
+    await localDb.suppliers.put({
+      id: supplierId,
+      businessId: "biz",
+      name: "Renombrada offline",
+      contact: null,
+      notes: null,
+      active: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    await enqueue("supplier", { id: supplierId, name: "Renombrada offline" }, "update");
+    const ops = await localDb.outbox.toArray();
+
+    // Un update no tiene snapshot: descartar NO debe borrar la entidad
+    // (antes el revert la eliminaba como si fuera un create).
+    expect(await revertPendingOp(ops[0]!.opId)).toBe(true);
+    expect(await localDb.outbox.toArray()).toHaveLength(0);
+    expect(await localDb.suppliers.get(supplierId)).toBeDefined();
+  });
 });
