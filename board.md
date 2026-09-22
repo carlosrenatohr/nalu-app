@@ -84,6 +84,20 @@ Add a row to the appropriate project section:
 | 15 | Sync robusta: backoff + reintento automático (causa raíz item 15) | ✅ Done | #11 |
 | 16 | Reutilización de componentes (ActionMenu, DraftBanner, Modal, Stepper) + touch targets ≥44px | ✅ Done | #7, #10, #14 |
 
+## Improvement plan — búsqueda/stock/offline UX (post v1.3.0)
+
+| # | Fase | Status | PR |
+|---|---|---|---|
+| F1 | Búsqueda de sabores compartida: acentos + mayúsculas (`SearchInput`, `matchesSearch`) | ✅ Done | #23 |
+| F2 | Fila compacta compartida + filtro de inactivos (venta/compra/edición/salida/offline) | 🔄 In Progress | — |
+| F3 | Orden/filtro por stock + catálogo compacto en Inicio + quick-add compra en header | 📋 Backlog | — |
+| F4 | Paginación de ventas (page/limit + "Cargar más") | 📋 Backlog | — |
+| F5 | Detalle de compra + swipe actions + sabor rápido reutilizando `FlavorModal` | 📋 Backlog | — |
+| F6 | Offline: cola de edición de compras/proveedores + fix recursión + `lastError` visible | 📋 Backlog | — |
+| F7 | Integridad SQLite: `db:integrity` + `db:backup:local` + docs | 📋 Backlog | — |
+| F8 | "Ajustar stock" desde Sabores vía `ExitModal` (motivo obligatorio) + emoji solo en modal | 📋 Backlog | — |
+| F9 | Sweep final: gate completo, regresión de reglas críticas, board/docs/memory al día | 📋 Backlog | — |
+
 ## Releases
 
 | Version | Date | Repos |

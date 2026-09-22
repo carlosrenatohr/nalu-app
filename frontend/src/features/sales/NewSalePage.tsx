@@ -11,6 +11,8 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { EmojiPicker } from "@/components/ui/EmojiPicker";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { matchesSearch } from "@/lib/utils/search";
 import { DraftBanner } from "@/components/ui/DraftBanner";
 import { clearDraft, draftKey, loadDraft, saveDraft } from "@/lib/drafts";
 import { PaymentSelect } from "@/components/ui/PaymentSelect";
@@ -122,16 +124,15 @@ export function NewSalePage() {
     [inventory.data],
   );
 
-  // Solo sabores ACTIVOS y con stock, filtrables por nombre.
-  const visibleFlavors = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return (inventory.data ?? []).filter(
-      (inv) =>
-        inv.flavor.active &&
-        inv.available > 0 &&
-        (q === "" || inv.flavor.name.toLowerCase().includes(q)),
-    );
-  }, [inventory.data, query]);
+  // Solo sabores ACTIVOS y con stock, filtrables por nombre (sin acentos).
+  const visibleFlavors = useMemo(
+    () =>
+      (inventory.data ?? []).filter(
+        (inv) =>
+          inv.flavor.active && inv.available > 0 && matchesSearch(query, inv.flavor.name),
+      ),
+    [inventory.data, query],
+  );
 
   const parsedCustom = customPrice !== "" ? Number(customPrice) : null;
   const isPriceValid = parsedCustom === null || (parsedCustom > 0 && Number.isFinite(parsedCustom));
@@ -334,16 +335,7 @@ export function NewSalePage() {
             Nuevo
           </button>
         </div>
-        <label className="relative mb-3 block sm:max-w-xs">
-          <span className="sr-only">Buscar sabor</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar sabor…"
-            className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
-          />
-        </label>
+        <SearchInput value={query} onChange={setQuery} className="mb-3" />
         {visibleFlavors.length === 0 ? (
           <p className="rounded-2xl bg-cream p-4 text-center text-sm font-semibold text-cocoa-soft">
             No hay sabores disponibles con ese nombre.
