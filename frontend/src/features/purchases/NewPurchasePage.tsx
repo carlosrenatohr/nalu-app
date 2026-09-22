@@ -11,6 +11,7 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { Modal } from "@/components/ui/Modal";
 import { DraftBanner } from "@/components/ui/DraftBanner";
 import { PaymentSelect } from "@/components/ui/PaymentSelect";
+import { FlavorModal } from "@/features/flavors/FlavorModal";
 import { FlavorQuantityRow } from "@/components/ui/FlavorQuantityRow";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { matchesSearch } from "@/lib/utils/search";
@@ -55,6 +56,7 @@ export function NewPurchasePage() {
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [onlyIncluded, setOnlyIncluded] = useState(false);
+  const [flavorModalOpen, setFlavorModalOpen] = useState(false);
 
   // Borrador: recupera uno guardado o crea uno nuevo mientras se edita.
   const draftKeyPurchase = draftKey(business?.id, "purchase");
@@ -244,15 +246,25 @@ export function NewPurchasePage() {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-bold text-cocoa-soft">Sabores comprados</span>
-          <label className="flex items-center gap-1.5 text-xs font-bold text-cocoa-soft">
-            <input
-              type="checkbox"
-              checked={onlyIncluded}
-              onChange={(e) => setOnlyIncluded(e.target.checked)}
-              className="h-4 w-4 rounded accent-turquoise"
-            />
-            Solo incluidos
-          </label>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-cocoa-soft">
+              <input
+                type="checkbox"
+                checked={onlyIncluded}
+                onChange={(e) => setOnlyIncluded(e.target.checked)}
+                className="h-4 w-4 rounded accent-turquoise"
+              />
+              Solo incluidos
+            </label>
+            <button
+              type="button"
+              onClick={() => setFlavorModalOpen(true)}
+              className="flex items-center gap-1 text-xs font-bold text-turquoise-deep hover:underline"
+            >
+              <IconPlus className="h-4 w-4" />
+              Nuevo
+            </button>
+          </div>
         </div>
         <SearchInput value={query} onChange={setQuery} className="mb-3" />
         {visibleFlavors.length === 0 ? (
@@ -362,6 +374,13 @@ export function NewPurchasePage() {
           />
         </div>
       </Modal>
+
+      {/* Modal crear sabor rápido (mismo modal de la página de Sabores) */}
+      <FlavorModal
+        open={flavorModalOpen}
+        onClose={() => setFlavorModalOpen(false)}
+        onSaved={() => flavors.reload()}
+      />
     </div>
   );
 }
