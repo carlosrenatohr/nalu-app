@@ -10,6 +10,8 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { useBusiness } from "@/hooks/useBusiness";
 import { useAsync } from "@/hooks/useAsync";
 import { PaymentSelect } from "@/components/ui/PaymentSelect";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { matchesSearch } from "@/lib/utils/search";
 import type { PaymentType, Purchase } from "@/types";
 
 // ---------------------------------------------------------------------
@@ -82,15 +84,14 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
     setLines((prev) => prev.filter((l) => l.flavorId !== flavorId));
   }
 
-  // Sabores visibles: filtrables por nombre y (si el switch está activo)
-  // solo los que ya incluyó el operador (ocultar los que están en 0).
+  // Sabores visibles: filtrables por nombre (sin acentos) y (si el switch está
+  // activo) solo los que ya incluyó el operador (ocultar los que están en 0).
   const visibleFlavors = useMemo(() => {
-    const q = query.trim().toLowerCase();
     return (flavors.data ?? []).filter((flavor) => {
       if (onlyIncluded && (lines.find((l) => l.flavorId === flavor.id)?.quantity ?? 0) <= 0) {
         return false;
       }
-      return q === "" || flavor.name.toLowerCase().includes(q);
+      return matchesSearch(query, flavor.name);
     });
   }, [flavors.data, query, onlyIncluded, lines]);
 
@@ -177,16 +178,7 @@ export function EditPurchaseModal({ open, purchase, onClose, onSaved }: EditPurc
               Solo incluidos
             </label>
           </div>
-          <label className="relative mb-3 block sm:max-w-xs">
-            <span className="sr-only">Buscar sabor</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar sabor…"
-              className="w-full rounded-2xl bg-white px-4 py-2.5 text-sm font-semibold text-cocoa ring-1 ring-cocoa/10 focus:ring-2 focus:ring-turquoise focus:outline-none"
-            />
-          </label>
+          <SearchInput value={query} onChange={setQuery} className="mb-3" />
           {visibleFlavors.length === 0 ? (
             <p className="rounded-2xl bg-cream p-4 text-center text-sm font-semibold text-cocoa-soft">
               No hay sabores que coincidan con la búsqueda.

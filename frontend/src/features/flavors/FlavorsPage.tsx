@@ -9,6 +9,8 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { ActionMenu } from "@/components/ui/ActionMenu";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { matchesSearch } from "@/lib/utils/search";
 import { useToast } from "@/components/ui/Toast";
 import { IconEdit, IconPlus, IconTrash } from "@/components/ui/icons";
 import { FlavorModal } from "./FlavorModal";
@@ -31,14 +33,16 @@ export function FlavorsPage() {
   const [deleteModal, setDeleteModal] = useState<Flavor | null>(null);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [query, setQuery] = useState("");
 
+  // Activos e inactivos, filtrables por nombre sin acentos ni mayúsculas.
   const { active, inactive } = useMemo(() => {
-    const all = flavors ?? [];
+    const all = (flavors ?? []).filter((f) => matchesSearch(query, f.name));
     return {
       active: all.filter((f) => f.active),
       inactive: all.filter((f) => !f.active),
     };
-  }, [flavors]);
+  }, [flavors, query]);
 
   function handleCreate() {
     setEditingFlavor(null);
@@ -151,6 +155,7 @@ export function FlavorsPage() {
 
       {flavors && flavors.length > 0 ? (
         <div className="space-y-6">
+          <SearchInput value={query} onChange={setQuery} />
           <section>
             <div className="mb-2 flex items-center gap-2">
               <h2 className="text-sm font-bold text-cocoa-soft">Activos</h2>

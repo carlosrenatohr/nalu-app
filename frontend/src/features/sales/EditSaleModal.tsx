@@ -9,6 +9,8 @@ import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { PaymentSelect } from "@/components/ui/PaymentSelect";
+import { SearchInput } from "@/components/ui/SearchInput";
+import { matchesSearch } from "@/lib/utils/search";
 import { cn } from "@/lib/utils/cn";
 import type { PaymentType, Sale } from "@/types";
 
@@ -41,6 +43,7 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
   const [notes, setNotes] = useState(sale?.notes ?? "");
   const [paymentType, setPaymentType] = useState<PaymentType>(sale?.paymentType ?? "cash");
   const [saving, setSaving] = useState(false);
+  const [query, setQuery] = useState("");
 
   // Inicializar cantidades desde la venta existente
   useEffect(() => {
@@ -76,6 +79,12 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
   );
 
   const effectivePrice = customPrice !== "" ? Number(customPrice) : unitPrice;
+
+  // Sabores filtrables por nombre (sin acentos), misma búsqueda que el resto.
+  const visibleFlavors = useMemo(
+    () => (inventory.data ?? []).filter((inv) => matchesSearch(query, inv.flavor.name)),
+    [inventory.data, query],
+  );
 
   const selectedLines = useMemo(
     () =>
@@ -198,8 +207,9 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
         {/* Sabores */}
         <div>
           <span className="mb-2 block text-sm font-bold text-cocoa-soft">Sabores</span>
+          <SearchInput value={query} onChange={setQuery} className="mb-3" />
           <ul className="space-y-2.5">
-            {(inventory.data ?? []).map((inv) => (
+            {visibleFlavors.map((inv) => (
               <li
                 key={inv.flavor.id}
                 className={cn(
