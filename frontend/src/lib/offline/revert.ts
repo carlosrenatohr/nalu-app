@@ -1,10 +1,14 @@
 import { localDb, type OutboxOp } from "./db";
+import { refreshInventoryCache } from "@/services/api";
 
 // ---------------------------------------------------------------------
 // Reversión segura de una operación del outbox que aún NO se sincronizó.
-// Solo aplica a ops pending/failed: elimina el registro local, revierte
-// el delta de inventario aplicado offline y borra la op del outbox.
-// Nunca toca registros ya sincronizados (synced).
+// Solo aplica a ops pending/failed y nunca toca registros ya
+// sincronizados (synced).
+//   - create: elimina el registro local y revierte su delta de inventario.
+//   - update/delete: no hay snapshot que restaurar → solo se quita la op
+//     de la cola; el valor local vuelve al del servidor en la próxima
+//     recarga de listas y el inventario se refresca si hay red.
 // ---------------------------------------------------------------------
 
 async function reverseInventoryDeltas(deltas: { flavorId: string; delta: number }[]): Promise<void> {
@@ -31,6 +35,14 @@ function movementSign(p: { movementType: string; quantity: number; direction?: s
 }
 
 export async function revertOperation(op: OutboxOp): Promise<void> {
+  // update/delete: solo quitamos la op de la cola (sin snapshot local no
+  // hay nada que restaurar) y refrescamos el caché de inventario si hay red.
+  if ((op.verb ?? "create") !== "create") {
+    await localDb.outbox.delete(op.opId);
+    await refreshInventoryCache();
+    return;
+  }
+
   const entityId = op.payload.id as string;
   switch (op.type) {
     case "sale": {

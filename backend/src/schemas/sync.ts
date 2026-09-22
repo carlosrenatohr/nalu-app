@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { createSaleSyncSchema, updateSaleSchema } from "./sale";
-import { createPurchaseSyncSchema } from "./purchase";
+import { createPurchaseSyncSchema, updatePurchaseSchema } from "./purchase";
 import { createMovementSyncSchema } from "./inventory";
 import { createFlavorSyncSchema, updateFlavorSchema } from "./flavor";
-import { createSupplierSyncSchema } from "./supplier";
+import { createSupplierSyncSchema, updateSupplierSchema } from "./supplier";
 import { uuidSchema } from "./common";
 
 // ---------------------------------------------------------------------
@@ -11,10 +11,13 @@ import { uuidSchema } from "./common";
 // El cliente genera los UUID para permitir la deduplicación por clave
 // primaria ante reintentos:
 //   - create:  opId = id de la entidad (payload.id), como siempre.
-//   - update/delete (solo sale y flavor): opId propio (UUID de la
-//     operación) distinto del id de la entidad para no colisionar con el
-//     create de la misma entidad.
+//   - update/delete (sale, flavor, purchase, supplier): opId propio
+//     (UUID de la operación) distinto del id de la entidad para no
+//     colisionar con el create de la misma entidad.
 // ---------------------------------------------------------------------
+
+/** Tipos que admiten edición (update/delete) desde el outbox offline. */
+const EDITABLE_TYPES = ["sale", "flavor", "purchase", "supplier"] as const;
 
 function payloadSchemaFor(type: string, verb: string): z.ZodType {
   if (verb === "delete") return z.object({ id: uuidSchema });
@@ -24,11 +27,11 @@ function payloadSchemaFor(type: string, verb: string): z.ZodType {
     case "flavor":
       return verb === "create" ? createFlavorSyncSchema : updateFlavorSchema.extend({ id: uuidSchema });
     case "purchase":
-      return createPurchaseSyncSchema;
+      return verb === "create" ? createPurchaseSyncSchema : updatePurchaseSchema.extend({ id: uuidSchema });
     case "movement":
       return createMovementSyncSchema;
     case "supplier":
-      return createSupplierSyncSchema;
+      return verb === "create" ? createSupplierSyncSchema : updateSupplierSchema.extend({ id: uuidSchema });
     default:
       return z.unknown();
   }
@@ -42,7 +45,7 @@ export const syncOperationSchema = z
     payload: z.record(z.string(), z.unknown()),
   })
   .superRefine((data, ctx) => {
-    const supportsEdit = data.type === "sale" || data.type === "flavor";
+    const supportsEdit = (EDITABLE_TYPES as readonly string[]).includes(data.type);
     if (data.verb !== "create" && !supportsEdit) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

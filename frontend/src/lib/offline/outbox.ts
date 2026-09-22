@@ -4,9 +4,9 @@ import { newId } from "@/lib/utils/id";
 // ---------------------------------------------------------------------
 // Outbox: cola de operaciones pendientes de sincronizar.
 //   - create  → opId = id de la entidad (payload.id); el servidor deduplica.
-//   - update/delete (solo sale y flavor) → opId propio (UUID de la
-//     operación) para no colisionar con el create de la misma entidad;
-//     payload.id es el id de la entidad.
+//   - update/delete (sale, flavor, purchase, supplier) → opId propio
+//     (UUID de la operación) para no colisionar con el create de la misma
+//     entidad; payload.id es el id de la entidad.
 // ---------------------------------------------------------------------
 
 export function createOutboxOp(
