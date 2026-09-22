@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "@/test/utils";
 import { InventoryPage } from "./InventoryPage";
 
@@ -71,5 +72,23 @@ describe("Inventario", () => {
     renderWithProviders(<InventoryPage />);
     await screen.findByText("Coco");
     expect(screen.getByText("¡Pocas!")).toBeInTheDocument();
+  });
+
+  it("ordena las tarjetas por stock (menor primero por defecto)", async () => {
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Coco");
+
+    const names = () =>
+      screen
+        .getAllByRole("listitem")
+        .map((li) => li.textContent ?? "")
+        .filter((t) => t.includes("disponibles") || t.includes("Coco") || t.includes("Oreo"));
+
+    // Por defecto: menor stock primero → Coco (4) antes que Oreo (18).
+    expect(names()[0]).toContain("Coco");
+
+    await userEvent.selectOptions(screen.getByLabelText(/Ordenar/i), "high");
+    const after = names();
+    expect(after[0]).toContain("Oreo");
   });
 });
