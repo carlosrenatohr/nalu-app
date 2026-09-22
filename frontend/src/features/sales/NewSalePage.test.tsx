@@ -60,12 +60,20 @@ vi.mock("@/services/api", () => ({
   locationsApi: {
     list: vi.fn(async () => MOCK_LOCATIONS),
   },
+  flavorsApi: {
+    create: vi.fn(async (input: { name: string; emoji?: string }) => ({
+      id: "flavor-9",
+      name: input.name,
+      emoji: input.emoji ?? "🍧",
+      active: true,
+    })),
+  },
   salesApi: {
     create: vi.fn(async (input: unknown) => ({ ...(input as object), id: "sale-1", profit: 64 })),
   },
 }));
 
-const { salesApi } = await import("@/services/api");
+const { salesApi, flavorsApi } = await import("@/services/api");
 
 describe("Nueva venta (venta rápida)", () => {
   beforeEach(() => {
@@ -144,6 +152,33 @@ describe("Nueva venta (venta rápida)", () => {
             }),
           ],
         }),
+      );
+    });
+  });
+
+  it("el picker de emoji del sabor rápido vive en su propio modal", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<NewSalePage />);
+    await screen.findByText("Coco");
+
+    // Abrir el form rápido: el grid NO se muestra dentro del formulario
+    await user.click(screen.getByRole("button", { name: "Nuevo" }));
+    await screen.findByRole("dialog", { name: "Nuevo sabor" });
+    expect(screen.queryByText(/Frutas/)).not.toBeInTheDocument();
+
+    // El botón compacto abre el selector en un modal aparte
+    await user.click(screen.getByRole("button", { name: "Cambiar emoji del sabor" }));
+    expect(await screen.findByRole("dialog", { name: "Elegir emoji" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Seleccionar 🥭" }));
+    await user.click(screen.getByRole("button", { name: "Listo" }));
+
+    // Crear el sabor con el emoji elegido
+    await user.type(await screen.findByPlaceholderText("Ej. Mango con Chile"), "Mango con Chile");
+    await user.click(screen.getByRole("button", { name: "Crear sabor" }));
+
+    await waitFor(() => {
+      expect(flavorsApi.create).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "Mango con Chile", emoji: "🥭" }),
       );
     });
   });

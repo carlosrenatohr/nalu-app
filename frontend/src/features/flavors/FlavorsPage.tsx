@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
-import { flavorsApi } from "@/services/api";
+import { flavorsApi, inventoryApi } from "@/services/api";
 import { formatMoney } from "@/lib/formatting/currency";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -12,25 +12,30 @@ import { ActionMenu } from "@/components/ui/ActionMenu";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { matchesSearch } from "@/lib/utils/search";
 import { useToast } from "@/components/ui/Toast";
-import { IconEdit, IconPlus, IconTrash } from "@/components/ui/icons";
+import { IconBox, IconEdit, IconPlus, IconTrash } from "@/components/ui/icons";
+import { ExitModal } from "@/features/inventory/ExitModal";
 import { FlavorModal } from "./FlavorModal";
 import type { Flavor } from "@/types";
 
 // ---------------------------------------------------------------------
 // Página de gestión de sabores en una grilla compacta para ver muchos
 // sabores sin scroll. Separa activos de inactivos/archivados y agrupa
-// las acciones (editar, activar/desactivar, eliminar) en un menú.
+// las acciones (editar, ajustar stock, activar/desactivar, eliminar)
+// en un menú. El ajuste reutiliza ExitModal (motivo obligatorio).
 // ---------------------------------------------------------------------
 
 export function FlavorsPage() {
   const { toast } = useToast();
   const { currency } = useBusiness();
   const { data: flavors, loading, reload } = useAsync(() => flavorsApi.list(true), []);
+  // Inventario para el ajuste de stock: disponible y sabor preseleccionado.
+  const { data: inventory, reload: reloadInventory } = useAsync(() => inventoryApi.list(), []);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingFlavor, setEditingFlavor] = useState<Flavor | null>(null);
   const [toggleModal, setToggleModal] = useState<Flavor | null>(null);
   const [deleteModal, setDeleteModal] = useState<Flavor | null>(null);
+  const [adjustFlavor, setAdjustFlavor] = useState<Flavor | null>(null);
   const [toggling, setToggling] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [query, setQuery] = useState("");
@@ -108,6 +113,11 @@ export function FlavorsPage() {
                 label: "Editar",
                 icon: <IconEdit className="h-4 w-4" />,
                 onClick: () => handleEdit(flavor),
+              },
+              {
+                label: "Ajustar stock",
+                icon: <IconBox className="h-4 w-4" />,
+                onClick: () => setAdjustFlavor(flavor),
               },
               {
                 label: flavor.active ? "Desactivar" : "Activar",
@@ -197,6 +207,17 @@ export function FlavorsPage() {
           }
         />
       )}
+
+      {/* Modal ajustar stock: ExitModal preselecciona el sabor y el
+          tipo ADJUSTMENT (motivo obligatorio, movimiento firmado). */}
+      <ExitModal
+        open={Boolean(adjustFlavor)}
+        onClose={() => setAdjustFlavor(null)}
+        inventory={inventory ?? []}
+        presetFlavorId={adjustFlavor?.id}
+        presetMovementType="ADJUSTMENT"
+        onSaved={reloadInventory}
+      />
 
       {/* Modal crear/editar */}
       <FlavorModal

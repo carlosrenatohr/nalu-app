@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils/cn";
 // ---------------------------------------------------------------------
 // Salidas/entradas de inventario SIN venta: regalar, consumo propio,
 // pérdida, ajuste (± con motivo) y devolución. Crean el movimiento y
-// NUNCA generan ingresos. El ajuste es bidireccional y exige motivo.
+// NUNCA generan ingresos. El ajuste es bidireccional y exige motivo
+// (validado aquí y en el backend). Se puede preabrir con un tipo
+// concreto, p. ej. "Ajustar stock" desde la página de Sabores.
 // ---------------------------------------------------------------------
 
 const EXIT_TYPES: { value: MovementType; label: string; emoji: string }[] = [
@@ -34,12 +36,14 @@ export function ExitModal({
   onClose,
   inventory,
   presetFlavorId,
+  presetMovementType,
   onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   inventory: FlavorInventory[];
   presetFlavorId?: string;
+  presetMovementType?: MovementType;
   onSaved?: () => void;
 }) {
   const { toast } = useToast();
@@ -49,26 +53,35 @@ export function ExitModal({
     (i) => i.flavor.active || i.flavor.id === presetFlavorId,
   );
   const [flavorId, setFlavorId] = useState(presetFlavorId ?? options[0]?.flavor.id ?? "");
-  const [movementType, setMovementType] = useState<MovementType>("GIFT");
+  const [movementType, setMovementType] = useState<MovementType>(presetMovementType ?? "GIFT");
   const [direction, setDirection] = useState<"in" | "out">("out");
   const [quantity, setQuantity] = useState(1);
   const [date, setDate] = useState(localToday());
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Al abrir: aplica los presets (sabor y tipo) para que cada acceso
+  // arranque en el flujo esperado aunque el modal ya se haya usado.
   useEffect(() => {
-    if (open && presetFlavorId) setFlavorId(presetFlavorId);
-  }, [open, presetFlavorId]);
+    if (!open) return;
+    if (presetFlavorId) setFlavorId(presetFlavorId);
+    if (presetMovementType) {
+      setMovementType(presetMovementType);
+      setDirection("out");
+    }
+  }, [open, presetFlavorId, presetMovementType]);
 
   const selected = inventory.find((i) => i.flavor.id === flavorId);
   const isReturn = movementType === "RETURN";
   const isAdjustment = movementType === "ADJUSTMENT";
   const increasing = isReturn || (isAdjustment && direction === "in");
   const isAdjustmentIn = isAdjustment && direction === "in";
+  // El motivo es obligatorio SOLO para el ajuste (la salida común no lo exige).
+  const notesMissing = isAdjustment && !notes.trim();
   const max = increasing ? undefined : Math.max(0, selected?.available ?? 0);
 
   async function handleSave() {
-    if (!flavorId || quantity <= 0) return;
+    if (!flavorId || quantity <= 0 || notesMissing) return;
     setSaving(true);
     try {
       await inventoryApi.registerMovement({
@@ -107,7 +120,7 @@ export function ExitModal({
       footer={
         <Button
           onClick={handleSave}
-          disabled={saving || !flavorId || quantity <= 0}
+          disabled={saving || !flavorId || quantity <= 0 || notesMissing}
           className="w-full"
           size="lg"
         >
@@ -216,13 +229,20 @@ export function ExitModal({
           ) : null}
         </div>
 
-        <Input
-          label={isAdjustment ? "Motivo (obligatorio)" : "Notas (opcional)"}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder={isAdjustment ? "Ej. producto dañado, conteo físico…" : "¿Para quién o por qué?"}
-          maxLength={300}
-        />
+        <div className="space-y-1.5">
+          <Input
+            label={isAdjustment ? "Motivo (obligatorio)" : "Notas (opcional)"}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder={isAdjustment ? "Ej. producto dañado, conteo físico…" : "¿Para quién o por qué?"}
+            maxLength={300}
+          />
+          {notesMissing ? (
+            <p className="text-xs font-bold text-strawberry">
+              Completa el motivo para guardar el ajuste.
+            </p>
+          ) : null}
+        </div>
       </div>
     </Modal>
   );

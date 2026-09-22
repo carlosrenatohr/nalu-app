@@ -24,6 +24,7 @@ import type { PaymentType } from "@/types";
 // Venta rápida: una sola pantalla para registrar en segundos.
 // Flujo: ubicación → sabores → cantidades → precio → total y ganancia
 // estimada → confirmar. Se guarda un borrador si el operador abandona.
+// El picker de emoji del sabor rápido vive en un modal aparte.
 // ---------------------------------------------------------------------
 
 const QUICK_PRICES = [40, 50, 60];
@@ -116,7 +117,8 @@ export function NewSalePage() {
   // Modal crear sabor rápido
   const [flavorModalOpen, setFlavorModalOpen] = useState(false);
   const [newFlavorName, setNewFlavorName] = useState("");
-  const [newFlavorEmoji, setNewFlavorEmoji] = useState<string | null>(null);
+  const [newFlavorEmoji, setNewFlavorEmoji] = useState<string | null>("🍧");
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [newFlavorSaving, setNewFlavorSaving] = useState(false);
 
   const available = useMemo(
@@ -235,7 +237,7 @@ export function NewSalePage() {
       toast(`Sabor "${flavor.name}" creado`);
       setFlavorModalOpen(false);
       setNewFlavorName("");
-      setNewFlavorEmoji(null);
+      setNewFlavorEmoji("🍧");
       inventory.reload();
     } catch (err) {
       toast(err instanceof Error ? err.message : "No se pudo crear el sabor", "error");
@@ -481,7 +483,16 @@ export function NewSalePage() {
         <div className="space-y-4">
           <div>
             <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Emoji del sabor</span>
-            <EmojiPicker value={newFlavorEmoji} onChange={setNewFlavorEmoji} />
+            {/* Botón compacto: el picker vive en su propio modal para no
+                consumir espacio del formulario (igual que FlavorModal). */}
+            <button
+              type="button"
+              onClick={() => setEmojiPickerOpen(true)}
+              className="flex h-16 w-16 items-center justify-center rounded-2xl bg-cream text-4xl ring-1 ring-cocoa/10 transition-transform hover:scale-105"
+              aria-label="Cambiar emoji del sabor"
+            >
+              {newFlavorEmoji ?? "🍧"}
+            </button>
           </div>
           <div>
             <span className="mb-1.5 block text-sm font-bold text-cocoa-soft">Nombre</span>
@@ -496,6 +507,20 @@ export function NewSalePage() {
             />
           </div>
         </div>
+
+        {/* Selector de emoji: solo en modal aparte */}
+        <Modal
+          open={emojiPickerOpen}
+          onClose={() => setEmojiPickerOpen(false)}
+          title="Elegir emoji"
+          footer={
+            <Button className="w-full" variant="mango" onClick={() => setEmojiPickerOpen(false)}>
+              Listo
+            </Button>
+          }
+        >
+          <EmojiPicker value={newFlavorEmoji} onChange={setNewFlavorEmoji} />
+        </Modal>
       </Modal>
     </div>
   );
