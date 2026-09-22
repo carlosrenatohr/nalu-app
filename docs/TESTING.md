@@ -41,8 +41,11 @@ Cubre:
   - muestra sabores y disponibilidad,
   - calcula el total al sumar cantidades (2 × C$60 = C$120),
   - valida la ubicación antes de guardar,
-  - guarda la venta con los datos correctos.
+  - guarda la venta con los datos correctos,
+  - el picker de emoji del sabor rápido vive en su propio modal (no inline en el formulario).
 - `frontend/src/features/inventory/InventoryPage.test.tsx` — render de tarjetas visuales y estado de stock bajo.
+- `frontend/src/features/inventory/ExitModal.test.tsx` — salidas y ajustes: preselección de tipo/sabor, motivo obligatorio en el ajuste (y opcional en salidas comunes).
+- `frontend/src/features/flavors/FlavorsPage.test.tsx` — "Ajustar stock" desde el menú de la tarjeta de sabor: abre `ExitModal` con el sabor preseleccionado y guarda el movimiento.
 - `frontend/src/lib/formatting/currency.test.ts` — formato de moneda (C$ sin espacios, locales).
 - `frontend/src/lib/offline/outbox.test.ts` — encolado, estados y límite de reintentos del outbox.
 - `frontend/src/services/api/inventory-cache.test.ts` — **regresión**: el caché de IndexedDB persiste la clave `flavorId` derivada de `flavor.id` (la tabla Dexie la usa como clave; sin normalizar, `bulkPut` falla y la UI muestra error aunque la red funcione).

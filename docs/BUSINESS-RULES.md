@@ -18,7 +18,7 @@ Existen 7 tipos de movimiento:
 
 **Regla crítica:** regalar, consumo propio y pérdidas **nunca** se cuentan como ventas ni generan ingresos. Solo `SALE` genera ingresos.
 
-**Ajuste manual de stock:** `ADJUSTMENT` es bidireccional (aumenta o disminuye según la dirección) y **exige un motivo** (`notes`). Queda registrado como movimiento firmado con su trazabilidad.
+**Ajuste manual de stock:** `ADJUSTMENT` es bidireccional (aumenta o disminuye según la dirección) y **exige un motivo** (`notes`), validado tanto en el backend como en la interfaz (el botón guardar queda bloqueado hasta escribir el motivo). Queda registrado como movimiento firmado con su trazabilidad. Se puede lanzar desde Inventario (Registrar salida), desde Inicio o desde la tarjeta de un sabor en Sabores (menú → **Ajustar stock**).
 
 ## 2. Inventario basado en movimientos
 
