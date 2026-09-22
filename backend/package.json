@@ -19,6 +19,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply nalu-db --remote",
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/reset.ts",
+    "db:integrity": "tsx src/db/integrity.ts",
+    "db:backup:local": "tsx src/db/backup-local.ts",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {

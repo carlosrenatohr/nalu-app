@@ -83,3 +83,29 @@ Al registrar una venta, ese promedio se congela en `sale_items.unit_cost_snapsho
 - 2 proveedores, 3 ubicaciones.
 - Una compra inicial y ventas de ejemplo **relativas a hoy** (`date('now','localtime',…)`) para que los reportes siempre muestren datos.
 - Ejemplos de regalo, consumo propio y pérdida.
+
+## Integridad y respaldos locales
+
+La base local de desarrollo (`backend/data/nalu.db`, `node:sqlite`) tiene comandos propios:
+
+```bash
+pnpm db:integrity       # PRAGMA integrity_check + foreign_key_check (solo lectura)
+pnpm db:backup:local    # instantánea consistente con VACUUM INTO
+pnpm db:backup          # export de D1 en producción (wrangler d1 export)
+```
+
+- **`db:integrity`** verifica la estructura del archivo y las claves
+  foráneas; sale con código 1 si encuentra problemas (sirve para CI o
+  scripts). Acepta una ruta opcional: `pnpm db:integrity <ruta.db>`.
+- **`db:backup:local`** crea `backups/nalu-local-<fecha>.db` con
+  `VACUUM INTO`: SQLite genera una instantánea consistente aunque el
+  servidor de desarrollo esté escribiendo (a diferencia de copiar el
+  archivo a mano). Verifica el respaldo con
+  `pnpm db:integrity <ruta>`. Acepta rutas: `pnpm db:backup:local [origen] [destino]`.
+- Las **rutas relativas** se prueban primero contra `backend/` y luego
+  contra la raíz del repositorio (donde se invoca `pnpm`), así que
+  `pnpm db:integrity backups/archivo.db` funciona desde la raíz.
+- `backups/` está en `.gitignore`: los respaldos nunca se versionan.
+- En producción la fuente es D1: respaldos con `pnpm db:backup` y
+  migraciones solo con `wrangler d1 migrations apply`
+  (ver [`DEPLOYMENT.md`](DEPLOYMENT.md)).

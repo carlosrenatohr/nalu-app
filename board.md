@@ -94,8 +94,8 @@ Add a row to the appropriate project section:
 | F4 | Paginación de ventas (page/limit + "Cargar más") | ✅ Done | #25 |
 | F5 | Detalle de compra + swipe actions + sabor rápido reutilizando `FlavorModal` | ✅ Done | #26 |
 | F6 | Offline: cola de edición de compras/proveedores + fix recursión + `lastError` visible | ✅ Done | #27 |
-| F7 | Integridad SQLite: `db:integrity` + `db:backup:local` + docs | 📋 Backlog | — |
-| F8 | "Ajustar stock" desde Sabores vía `ExitModal` (motivo obligatorio) + emoji solo en modal | 📋 Backlog | — |
+| F7 | Integridad SQLite: `db:integrity` + `db:backup:local` + docs | ✅ Done | #28 |
+| F8 | "Ajustar stock" desde Sabores vía `ExitModal` (motivo obligatorio) + emoji solo en modal | 🔄 In Progress | — |
 | F9 | Sweep final: gate completo, regresión de reglas críticas, board/docs/memory al día | 📋 Backlog | — |
 
 ## Releases
