@@ -105,7 +105,13 @@ export const flavorsApi = {
       await localDb.flavors.bulkPut(flavors);
       return flavors;
     } catch (err) {
-      if (isNetworkError(err)) return localDb.flavors.toArray();
+      if (isNetworkError(err)) {
+        // El caché guarda todos los sabores; sin includeInactive devolvemos
+        // solo los activos, igual que el servidor (los archivados no deben
+        // aparecer para nuevas ventas/compras).
+        const cached = await localDb.flavors.toArray();
+        return includeInactive ? cached : cached.filter((f) => f.active);
+      }
       throw err;
     }
   },

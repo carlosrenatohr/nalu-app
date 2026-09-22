@@ -88,9 +88,9 @@ Add a row to the appropriate project section:
 
 | # | Fase | Status | PR |
 |---|---|---|---|
-| F1 | Búsqueda de sabores compartida: acentos + mayúsculas (`SearchInput`, `matchesSearch`) | ✅ Done | #23 |
-| F2 | Fila compacta compartida + filtro de inactivos (venta/compra/edición/salida/offline) | 🔄 In Progress | — |
-| F3 | Orden/filtro por stock + catálogo compacto en Inicio + quick-add compra en header | 📋 Backlog | — |
+| F1 | Búsqueda de sabores compartida: acentos + mayúsculas (`SearchInput`, `matchesSearch`) | ✅ Done | #22 |
+| F2 | Fila compacta compartida + filtro de inactivos (venta/compra/edición/salida/offline) | ✅ Done | #23 |
+| F3 | Orden/filtro por stock + catálogo compacto en Inicio + quick-add compra en header | 🔄 In Progress | — |
 | F4 | Paginación de ventas (page/limit + "Cargar más") | 📋 Backlog | — |
 | F5 | Detalle de compra + swipe actions + sabor rápido reutilizando `FlavorModal` | 📋 Backlog | — |
 | F6 | Offline: cola de edición de compras/proveedores + fix recursión + `lastError` visible | 📋 Backlog | — |

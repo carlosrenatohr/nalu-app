@@ -5,12 +5,12 @@ import { useBusiness } from "@/hooks/useBusiness";
 import { flavorsApi, inventoryApi, locationsApi, salesApi } from "@/services/api";
 import { formatMoney, localToday } from "@/lib/formatting/currency";
 import { Button } from "@/components/ui/Button";
-import { Stepper } from "@/components/ui/Stepper";
 import { useToast } from "@/components/ui/Toast";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { EmojiPicker } from "@/components/ui/EmojiPicker";
+import { FlavorQuantityRow } from "@/components/ui/FlavorQuantityRow";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { matchesSearch } from "@/lib/utils/search";
 import { DraftBanner } from "@/components/ui/DraftBanner";
@@ -343,34 +343,16 @@ export function NewSalePage() {
         ) : (
           <ul className="grid grid-cols-2 gap-3">
             {visibleFlavors.map((inv) => (
-              <li
+              <FlavorQuantityRow
                 key={inv.flavor.id}
-                className={cn(
-                  "flex flex-col gap-2 rounded-[1.25rem] bg-white p-3 ring-1 transition-all",
-                  (quantities[inv.flavor.id] ?? 0) > 0
-                    ? "ring-turquoise shadow-soft"
-                    : "ring-cocoa/5",
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  <span className="text-2xl" aria-hidden="true">
-                    {inv.flavor.emoji ?? "🍦"}
-                  </span>
-                  <p className="min-w-0 line-clamp-2 font-extrabold leading-tight text-cocoa">
-                    {inv.flavor.name}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="text-[11px] font-semibold text-cocoa-soft">
-                    {inv.available} disp.
-                  </span>
-                  <Stepper
-                    value={quantities[inv.flavor.id] ?? 0}
-                    onChange={(v) => setQty(inv.flavor.id, v)}
-                    max={Math.max(0, inv.available)}
-                  />
-                </div>
-              </li>
+                id={inv.flavor.id}
+                name={inv.flavor.name}
+                emoji={inv.flavor.emoji}
+                meta={`${inv.available} disponibles`}
+                quantity={quantities[inv.flavor.id] ?? 0}
+                onChange={(v) => setQty(inv.flavor.id, v)}
+                max={Math.max(0, inv.available)}
+              />
             ))}
           </ul>
         )}
