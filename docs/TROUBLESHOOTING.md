@@ -187,6 +187,26 @@ pnpm db:backup
 # Crea backup en backups/nalu-db-YYYYMMDD-HHMM.sql
 ```
 
+### Base local corrupta (solo desarrollo)
+
+**Síntoma:** `SQLITE_CORRUPT`, `database disk image is malformed` o
+fallos extraños solo en local (producción usa D1 y no se ve afectada).
+
+**Diagnóstico y solución:**
+```bash
+# Desde la raíz
+pnpm db:integrity          # integrity_check + foreign_key_check (código 1 si hay problemas)
+pnpm db:backup:local       # intenta extraer una instantánea sana (VACUUM INTO)
+pnpm db:reset && pnpm db:seed   # si no hay respaldo válido: recrear la base local
+```
+
+### Backup local de la base de desarrollo
+
+```bash
+pnpm db:backup:local       # crea backups/nalu-local-YYYYMMDD-HHMMSS.db
+pnpm db:integrity backups/nalu-local-<fecha>.db   # verifica el respaldo
+```
+
 ---
 
 ## Errores comunes de la API

@@ -53,6 +53,7 @@ pnpm test             # unit + API + componentes (Vitest)
 pnpm test:e2e         # e2e (Playwright, requiere servidores arriba)
 pnpm lint / pnpm typecheck / pnpm build
 pnpm db:migrate / pnpm db:seed / pnpm db:reset
+pnpm db:integrity / pnpm db:backup:local   # integridad y respaldo de la BD local
 ```
 
 Comandos por paquete con `--filter`: `pnpm --filter @nalu/backend test`, `pnpm --filter @nalu/frontend build`, etc. (o `cd backend && pnpm test`).

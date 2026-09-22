@@ -16,6 +16,9 @@
     "db:migrate:local": "pnpm --filter @nalu/backend db:migrate:local",
     "db:migrate:remote": "pnpm --filter @nalu/backend db:migrate:remote",
     "db:seed": "pnpm --filter @nalu/backend db:seed",
+    "db:reset": "pnpm --filter @nalu/backend db:reset",
+    "db:integrity": "pnpm --filter @nalu/backend db:integrity",
+    "db:backup:local": "pnpm --filter @nalu/backend db:backup:local",
     "db:backup": "mkdir -p backups && cd backend && pnpm exec wrangler d1 export nalu-db --remote --output ../backups/nalu-db-$(date +%Y%m%d-%H%M).sql && cd .. && echo \"✓ Respaldo en backups/\"",
     "preview": "pnpm --filter @nalu/frontend preview"
   },
