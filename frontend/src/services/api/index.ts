@@ -11,6 +11,7 @@ import type {
   FlavorInventory,
   FlavorInventoryDetail,
   InventoryMovement,
+  InventoryRecommendation,
   Location,
   NewMovementInput,
   NewPurchaseInput,
@@ -787,6 +788,19 @@ export const reportsApi = {
 
   async inventory(): Promise<FlavorInventory[]> {
     return inventoryApi.list();
+  },
+};
+
+// ---------------------------------------------------------------------
+// Recomendación IA (Jev). En vivo y solo lectura: sin caché ni outbox
+// (requiere conexión; sin ella la tarjeta muestra su estado de error).
+// ---------------------------------------------------------------------
+export const aiApi = {
+  inventoryRecommendation(days: number): Promise<InventoryRecommendation> {
+    return apiRequest<InventoryRecommendation>("/ai/inventory-recommendation", {
+      method: "POST",
+      query: { days: String(days) },
+    });
   },
 };
 
