@@ -30,12 +30,16 @@ async function getBusinessId(): Promise<string> {
 
 const services = createServices({ db, getBusinessId });
 
-// Recomendación IA: la API key es un secreto de Workers (wrangler secret)
-// y JAMÁS se expone al frontend; el modelo/endpoint son vars no sensibles.
+// Recomendación IA: las API keys son secretos de Workers (wrangler
+// secret) y JAMÁS se exponen al frontend; modelo/endpoint son vars.
+// Preferencia: AI_GATEWAY_API_KEY (Jev vía Vercel AI Gateway, porque
+// Zen limita por origen las IPs de Workers) > OPENCODE_ZEN_API_KEY.
 const app = createApp({
   db,
   getBusinessId,
   ai: {
+    gatewayKey: env.AI_GATEWAY_API_KEY,
+    gatewayModel: env.AI_GATEWAY_MODEL,
     apiKey: env.OPENCODE_ZEN_API_KEY,
     model: env.ZEN_MODEL,
     endpoint: env.ZEN_ENDPOINT,

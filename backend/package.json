@@ -24,6 +24,7 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
+    "ai": "^7.0.105",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.45.2",
     "drizzle-orm-node-sqlite": "^0.1.0",

@@ -43,10 +43,12 @@ export interface ChoiceQuestion {
   criteria: Record<string, string>;
 }
 
-export interface SystemOneQuestions {
+// `type` (no `interface`): TypeScript solo otorga firma indexada
+// implícita a los type aliases, y el AI SDK exige Record<string, …>.
+export type SystemOneQuestions = {
   flavor: ChoiceQuestion;
   priority: ChoiceQuestion;
-}
+};
 
 export interface ProbabilityEntry {
   id: string;
