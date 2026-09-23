@@ -106,6 +106,7 @@ Toda la documentación está en español 🇪🇸:
 - [📈 Reportes y exportación](docs/REPORTS.md)
 - [🛠️ Desarrollo local](docs/DEVELOPMENT.md)
 - [☁️ Despliegue en Cloudflare](docs/DEPLOYMENT.md)
+- [🤖 Jev (IA) y recomendación de inventario](docs/JEV.md)
 - [🧪 Testing](docs/TESTING.md)
 
 ---
