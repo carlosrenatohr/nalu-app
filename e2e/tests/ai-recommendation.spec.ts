@@ -44,7 +44,9 @@ test.describe("Recomendación IA de inventario", () => {
     // faltar la API key en CI): recomendación, datos insuficientes o error.
     const success = page.getByText("Probabilidades de Jev");
     const insufficient = page.getByText(/Aún no hay una recomendación clara/);
-    const failed = page.getByText(/No fue posible obtener la recomendación/);
+    // Cualquier código de error (429, timeout, no configurado…) muestra
+    // copia específica + el botón de reintento: ese botón marca el fallo.
+    const failed = page.getByRole("button", { name: /Reintentar/ });
     await expect(success.or(insufficient).or(failed)).toBeVisible({ timeout: 20_000 });
 
     // Con recomendación real se ven sabor + confianza de Jev.
@@ -59,5 +61,23 @@ test.describe("Recomendación IA de inventario", () => {
 
     // Nunca se filtra un stack trace en la UI.
     await expect(page.getByText(/at .*\.ts:\d+/)).toHaveCount(0);
+  });
+
+  test("el toggle oculta y muestra la tarjeta sin romper la página", async ({ page }) => {
+    await login(page);
+    await page.goto("/inventory");
+
+    const hideToggle = page.getByRole("button", { name: /Ocultar recomendación de Jev/ });
+    await expect(hideToggle).toHaveAttribute("aria-expanded", "true");
+
+    await hideToggle.click();
+    await expect(
+      page.getByRole("button", { name: /Mostrar recomendación de Jev/ }),
+    ).toHaveAttribute("aria-expanded", "false");
+    // La página sigue operable: el listado de inventario se ve igual.
+    await expect(page.getByText("Coco").first()).toBeVisible();
+
+    await page.getByRole("button", { name: /Mostrar recomendación de Jev/ }).click();
+    await expect(page.getByRole("group", { name: "Ventana de análisis" })).toBeVisible();
   });
 });

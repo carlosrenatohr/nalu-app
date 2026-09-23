@@ -45,6 +45,7 @@ function makeRecommendation(
 
 beforeEach(() => {
   recommend.mockReset();
+  localStorage.clear(); // preferencia de visibilidad compartida entre tests
 });
 
 describe("AiRecommendationCard", () => {
@@ -96,7 +97,9 @@ describe("AiRecommendationCard", () => {
 
     await user.click(screen.getByRole("button", { name: /analizar inventario/i }));
 
-    expect(await screen.findByText(/no fue posible obtener la recomendación/i)).toBeInTheDocument();
+    // Copia específica por código: título + pista + detalle del servidor.
+    expect(await screen.findByText(/jev no está disponible/i)).toBeInTheDocument();
+    expect(screen.getByText(/el servicio de ia no respondió/i)).toBeInTheDocument();
     expect(screen.getByText(/servicio caído/i)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /reintentar/i }));
@@ -139,5 +142,73 @@ describe("AiRecommendationCard", () => {
     await user.click(screen.getByRole("button", { name: "7 días" }));
     await waitFor(() => expect(recommend).toHaveBeenCalledWith(7));
     expect(recommend).toHaveBeenCalledTimes(2);
+  });
+
+  it("429 (saturación) → explica que Jev está saturado y sugiere esperar", async () => {
+    recommend.mockRejectedValueOnce(
+      new ApiClientError(
+        "AI_RATE_LIMIT",
+        "El servicio de IA recibió demasiadas solicitudes. Intenta en unos minutos.",
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<AiRecommendationCard />);
+
+    await user.click(screen.getByRole("button", { name: /analizar inventario/i }));
+
+    expect(await screen.findByText(/jev está saturado/i)).toBeInTheDocument();
+    expect(screen.getByText(/espera un minuto/i)).toBeInTheDocument();
+    expect(screen.getByText(/recibió demasiadas solicitudes/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
+  });
+
+  it("error sin código del servidor → copia genérica (nunca un estado vacío)", async () => {
+    recommend.mockRejectedValue(new TypeError("fetch failed"));
+    const user = userEvent.setup();
+    renderWithProviders(<AiRecommendationCard />);
+
+    await user.click(screen.getByRole("button", { name: /analizar inventario/i }));
+
+    expect(await screen.findByText(/no fue posible obtener la recomendación/i)).toBeInTheDocument();
+    expect(screen.getByText(/revisa tu conexión/i)).toBeInTheDocument();
+    // El error crudo del runtime jamás se filtra a la UI.
+    expect(screen.queryByText(/fetch failed/i)).not.toBeInTheDocument();
+  });
+
+  it("el toggle oculta la tarjeta y la vuelve a mostrar (preferencia persistida)", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<AiRecommendationCard />);
+
+    const hideButton = screen.getByRole("button", { name: /ocultar recomendación de jev/i });
+    expect(hideButton).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById("cuerpo-recomendacion-ia")).not.toHaveAttribute("inert");
+
+    await user.click(hideButton);
+
+    expect(
+      screen.getByRole("button", { name: /mostrar recomendación de jev/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById("cuerpo-recomendacion-ia")).toHaveAttribute("inert");
+    expect(localStorage.getItem("nalu.jev.recomendacion-visible")).toBe("0");
+    // El encabezado y su toggle siguen disponibles: Nalu sigue operable.
+    expect(screen.getByText("Recomendación IA")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /mostrar recomendación de jev/i }));
+
+    expect(
+      screen.getByRole("button", { name: /ocultar recomendación de jev/i }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(localStorage.getItem("nalu.jev.recomendacion-visible")).toBe("1");
+  });
+
+  it("respeta la preferencia guardada al montar (tarjeta oculta)", () => {
+    localStorage.setItem("nalu.jev.recomendacion-visible", "0");
+    renderWithProviders(<AiRecommendationCard />);
+
+    expect(
+      screen.getByRole("button", { name: /mostrar recomendación de jev/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(document.getElementById("cuerpo-recomendacion-ia")).toHaveAttribute("inert");
+    expect(screen.getByText("Recomendación IA")).toBeInTheDocument();
   });
 });
