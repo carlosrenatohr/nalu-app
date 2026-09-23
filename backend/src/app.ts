@@ -6,6 +6,7 @@ import { createApiRouter } from "./routes";
 import { requestLogger } from "./middleware/logger";
 import { notFoundHandler } from "./middleware/not-found";
 import { errorHandler } from "./middleware/error-handler";
+import type { AiOptions } from "./services/ai.service";
 
 export interface AppDeps {
   db: DrizzleDb;
@@ -17,6 +18,8 @@ export interface AppDeps {
   getBusinessId: () => Promise<string>;
   /** Origen permitido por CORS (solo desarrollo; en producción es same-origin). */
   corsOrigin?: string;
+  /** Configuración/inyección del proveedor de IA (la API key nunca llega al cliente). */
+  ai?: AiOptions;
 }
 
 export function createApp(deps: AppDeps): Express {

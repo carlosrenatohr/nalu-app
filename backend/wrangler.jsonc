@@ -28,7 +28,11 @@
     }
   ],
   "vars": {
-    "ALERT_FROM_EMAIL": "alertas@nalu.example"
+    "ALERT_FROM_EMAIL": "alertas@nalu.example",
+    // Recomendación IA (Jev vía OpenCode Zen). El endpoint/modelo no son
+    // sensibles; la API key es un secreto: `wrangler secret put OPENCODE_ZEN_API_KEY`.
+    "ZEN_MODEL": "jev-1.13-free",
+    "ZEN_ENDPOINT": "https://opencode.ai/zen/v1/systemone"
   },
   // Cron diario (13:00 UTC = 07:00 hora de Nicaragua). Comentado a propósito:
   // la cuenta Workers Free tiene límite de 5 cron triggers y ya están usados
