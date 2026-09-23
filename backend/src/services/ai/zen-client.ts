@@ -1,14 +1,25 @@
-import { ApiError } from "../../utils/http-error";
 import type { SystemOneQuestions } from "../../domain/ai/recommendation";
+import {
+  aiInvalidResponse,
+  aiNotConfigured,
+  aiRateLimit,
+  aiTimeout,
+  aiUnavailable,
+} from "./errors";
 
 // ---------------------------------------------------------------------
 // Cliente HTTP de OpenCode Zen (System One / Jev).
 //
 // - La API key JAMÁS sale del backend ni se registra en logs.
 // - Sin dependencias nuevas: fetch nativo (compatible con Workers).
-// - Errores de red/timeout/proveedor → ApiError con mensajes seguros
-//   en español; el detalle solo queda en el log del servidor.
-// El cliente es inyectable para que los tests no dependan de la red.
+// - Errores de red/timeout/proveedor → errores controlados compartidos
+//   (services/ai/errors.ts); el detalle solo queda en el log del
+//   servidor. El cliente es inyectable para que los tests no dependan
+//   de la red.
+//
+// Nota: en producción Zen limita por ORIGEN las IPs de Cloudflare
+// Workers (429 sostenido); por eso el proveedor preferido en prod es
+// el Vercel AI Gateway (ver gateway-client.ts y docs/JEV.md).
 // ---------------------------------------------------------------------
 
 export interface ZenClientOptions {
@@ -53,11 +64,7 @@ export function createZenClient(options: ZenClientOptions): AiClient {
   return {
     async evaluate(request: AiEvaluateRequest): Promise<AiEvaluateResponse> {
       if (!options.apiKey) {
-        throw new ApiError(
-          503,
-          "AI_NOT_CONFIGURED",
-          "La recomendación con IA no está configurada en este servidor.",
-        );
+        throw aiNotConfigured();
       }
 
       let res: Response;
@@ -78,53 +85,29 @@ export function createZenClient(options: ZenClientOptions): AiClient {
         });
       } catch (err) {
         if (isTimeout(err)) {
-          throw new ApiError(
-            504,
-            "AI_TIMEOUT",
-            "El servicio de IA tardó demasiado en responder. Intenta nuevamente.",
-          );
+          throw aiTimeout();
         }
         console.error("[ai] error de red al llamar al proveedor:", err instanceof Error ? err.message : err);
-        throw new ApiError(
-          502,
-          "AI_UNAVAILABLE",
-          "El servicio de IA no está disponible en este momento. Intenta más tarde.",
-        );
+        throw aiUnavailable();
       }
 
       if (res.status === 401 || res.status === 403) {
         console.error(`[ai] credenciales rechazadas por el proveedor (${res.status})`);
-        throw new ApiError(
-          503,
-          "AI_NOT_CONFIGURED",
-          "La recomendación con IA no está configurada correctamente en este servidor.",
-        );
+        throw aiNotConfigured(true);
       }
       if (res.status === 429) {
         console.warn("[ai] rate limit del proveedor (429)");
-        throw new ApiError(
-          429,
-          "AI_RATE_LIMIT",
-          "El servicio de IA recibió demasiadas solicitudes. Intenta en unos minutos.",
-        );
+        throw aiRateLimit();
       }
       if (!res.ok) {
         console.error(`[ai] el proveedor respondió ${res.status}`);
-        throw new ApiError(
-          502,
-          "AI_UNAVAILABLE",
-          "El servicio de IA no está disponible en este momento. Intenta más tarde.",
-        );
+        throw aiUnavailable();
       }
 
       try {
         return (await res.json()) as AiEvaluateResponse;
       } catch {
-        throw new ApiError(
-          502,
-          "AI_INVALID_RESPONSE",
-          "La respuesta del servicio de IA no es válida. Intenta nuevamente.",
-        );
+        throw aiInvalidResponse();
       }
     },
   };

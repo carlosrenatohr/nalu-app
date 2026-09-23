@@ -111,22 +111,25 @@ Nalu puede enviar **avisos de stock bajo** y el **resumen del día anterior** po
 
 ## Recomendación IA (Jev / System One)
 
-La tarjeta ✨ del inventario consulta el modelo **Jev** (OpenCode Zen) con datos reales de inventario y ventas.
+La tarjeta ✨ del inventario consulta el modelo **Jev** (System One). En producción usa el **Vercel AI Gateway** (alias `typesafe-ai/jev`) y, como respaldo / desarrollo local, **OpenCode Zen** (`jev-1.13-free`).
+
+> ⚠️ **Por qué el gateway:** OpenCode Zen limita por **origen** las IPs salientes de Cloudflare Workers → en producción devolvía `429 AI_RATE_LIMIT` sostenido aunque la misma clave funcionara perfectamente desde tu máquina (diagnóstico completo en `docs/JEV.md` §12).
 
 ### Configurar (una vez)
 
-1. **Obtener la API key** de OpenCode Zen (opencode.ai → cuenta → API keys).
-2. **Producción:** guardar el secreto del Worker (desde `backend/`):
+1. **Obtener la clave del AI Gateway** (prefijo `vck_`): vercel.com → tu proyecto → AI Gateway → API keys, o `vercel ai-gateway api-keys create`.
+2. **Producción** (desde `backend/`):
 
    ```bash
-   pnpm exec wrangler secret put OPENCODE_ZEN_API_KEY
+   pnpm exec wrangler secret put AI_GATEWAY_API_KEY     # preferido (prod)
+   pnpm exec wrangler secret put OPENCODE_ZEN_API_KEY   # respaldo (opcional)
    ```
 
-3. **Local:** crea `backend/.env` desde la plantilla `backend/.env.example` y pega la clave. El archivo está en `.gitignore` y jamás se comitea.
+3. **Local:** crea `backend/.env` desde la plantilla `backend/.env.example` y pega `AI_GATEWAY_API_KEY` (o solo `OPENCODE_ZEN_API_KEY` para probar contra Zen). El archivo está en `.gitignore` y jamás se comitea.
 
-> 🔐 La API key **solo vive en el servidor** (secreto de Workers / `.env` local): nunca aparece en el repo, en los logs ni en el frontend. El modelo y endpoint ya vienen en `wrangler.jsonc` → `vars` (`ZEN_MODEL`, `ZEN_ENDPOINT`), que no son sensibles.
+> 🔐 Las claves **solo viven en el servidor** (secretos de Workers / `.env` local): nunca aparecen en el repo, en los logs ni en el frontend. El alias del modelo y el endpoint son vars no sensibles (`AI_GATEWAY_MODEL`, `ZEN_MODEL`, `ZEN_ENDPOINT` en `wrangler.jsonc`).
 
-> Sin la clave la app funciona igual: el endpoint responde `503 AI_NOT_CONFIGURED` y la tarjeta muestra un mensaje amigable.
+> Sin claves la app funciona igual: el endpoint responde `503 AI_NOT_CONFIGURED`, la tarjeta muestra un mensaje amigable y el usuario puede ocultarla con el toggle 👁️.
 
 ## Variables de entorno
 
@@ -136,7 +139,9 @@ La tarjeta ✨ del inventario consulta el modelo **Jev** (OpenCode Zen) con dato
 | `CLOUDFLARE_ACCOUNT_ID` | Secretos de GitHub / CLI | Cuenta Cloudflare |
 | `CORS_ORIGIN` | Local (opcional) | Origen permitido en desarrollo |
 | `ALERT_FROM_EMAIL` | `wrangler.jsonc` → `vars` | Remitente de las alertas (dominio verificado) |
-| `OPENCODE_ZEN_API_KEY` | `wrangler secret put` (prod) / `backend/.env` (local) | API key de OpenCode Zen para Jev — **secreta, nunca en el repo** |
+| `AI_GATEWAY_API_KEY` | `wrangler secret put` (prod) / `backend/.env` (local) | Clave del Vercel AI Gateway para Jev (vck_) — **secreta, preferida en prod** |
+| `AI_GATEWAY_MODEL` | `wrangler.jsonc` → `vars` / `backend/.env` | Alias del modelo en el gateway (default `typesafe-ai/jev`) |
+| `OPENCODE_ZEN_API_KEY` | `wrangler secret put` (respaldo) / `backend/.env` (local) | API key de OpenCode Zen para Jev (respaldo / dev local) — **secreta, nunca en el repo** |
 | `ZEN_MODEL` | `wrangler.jsonc` → `vars` / `backend/.env` | Modelo a usar (default `jev-1.13-free`) |
 | `ZEN_ENDPOINT` | `wrangler.jsonc` → `vars` / `backend/.env` | Endpoint System One (default `https://opencode.ai/zen/v1/systemone`) |
 
@@ -191,3 +196,4 @@ Cloudflare Workers — Worker nalu-api
 | Migraciones sin efecto | `wrangler d1 migrations apply nalu-db --remote` (no `--local`). |
 | `worker.fetch is not a function` | `httpServerHandler` devuelve un `ExportedHandler`; fusiónalo con spread: `export default { ...httpServerHandler({ port: 3000 }), scheduled }`. |
 | Cron no registrado (límite 5 triggers) | Cuenta Free sin triggers libres; activa el cron cuando el plan lo permita (ver sección de alertas). |
+| `429 AI_RATE_LIMIT` siempre en producción | OpenCode Zen limita por origen las IPs de Workers → configura `AI_GATEWAY_API_KEY` (ver `docs/JEV.md` §12). |

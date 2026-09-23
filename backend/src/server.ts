@@ -54,6 +54,9 @@ async function main(): Promise<void> {
     getBusinessId,
     corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
     ai: {
+      // Preferencia: Vercel AI Gateway > OpenCode Zen (ver ai.service.ts).
+      gatewayKey: process.env.AI_GATEWAY_API_KEY,
+      gatewayModel: process.env.AI_GATEWAY_MODEL,
       apiKey: process.env.OPENCODE_ZEN_API_KEY,
       model: process.env.ZEN_MODEL ?? DEFAULT_AI_MODEL,
       endpoint: process.env.ZEN_ENDPOINT ?? DEFAULT_AI_ENDPOINT,

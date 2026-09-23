@@ -29,8 +29,11 @@
   ],
   "vars": {
     "ALERT_FROM_EMAIL": "alertas@nalu.example",
-    // Recomendación IA (Jev vía OpenCode Zen). El endpoint/modelo no son
-    // sensibles; la API key es un secreto: `wrangler secret put OPENCODE_ZEN_API_KEY`.
+    // Recomendación IA (Jev). Preferido: Vercel AI Gateway, secreto
+    // `wrangler secret put AI_GATEWAY_API_KEY` (clave vck_…); respaldo
+    // OpenCode Zen con `wrangler secret put OPENCODE_ZEN_API_KEY`.
+    // Zen limita por origen las IPs de Workers (ver docs/JEV.md).
+    "AI_GATEWAY_MODEL": "typesafe-ai/jev",
     "ZEN_MODEL": "jev-1.13-free",
     "ZEN_ENDPOINT": "https://opencode.ai/zen/v1/systemone"
   },

@@ -8,8 +8,9 @@ import {
 } from "../domain/ai/recommendation";
 import { systemOneResponseSchema } from "../schemas/ai";
 import { createReportRepository } from "../repositories/report.repository";
+import { createGatewayClient, DEFAULT_GATEWAY_MODEL } from "./ai/gateway-client";
 import { createZenClient, type AiClient } from "./ai/zen-client";
-import { ApiError } from "../utils/http-error";
+import { aiInvalidResponse, aiNotConfigured } from "./ai/errors";
 import { addDays, todayISO } from "../utils/dates";
 
 // ---------------------------------------------------------------------
@@ -19,6 +20,12 @@ import { addDays, todayISO } from "../utils/dates";
 // validación (Zod + semántica) → respuesta lista para la UI.
 // El modelo solo DECIDE (choice + confianza); nunca escribe en la DB
 // ni ejecuta acciones. La razón la compone Nalu con datos verificados.
+//
+// Proveedores (en orden de preferencia):
+//   1. cliente inyectado (tests),
+//   2. Vercel AI Gateway (clave vck_…) — el preferido en producción,
+//      porque OpenCode Zen limita por origen las IPs de Workers,
+//   3. OpenCode Zen (respaldo / desarrollo local).
 // ---------------------------------------------------------------------
 
 export const DEFAULT_AI_MODEL = "jev-1.13-free";
@@ -28,9 +35,41 @@ export const DEFAULT_RECOMMENDATION_DAYS = 30;
 /** Configuración/inyección del proveedor de IA (inyectable en tests). */
 export interface AiOptions {
   client?: AiClient;
+  /** Clave del Vercel AI Gateway (prefijo vck_). Preferida en producción. */
+  gatewayKey?: string;
+  /** Alias del modelo en el gateway (por defecto typesafe-ai/jev). */
+  gatewayModel?: string;
   apiKey?: string;
   model?: string;
   endpoint?: string;
+}
+
+/**
+ * Selecciona el proveedor: cliente inyectado > Gateway > Zen > ninguno.
+ * Se exporta para testeares la precedencia sin pegarle a la red.
+ */
+export function createAiClient(ai?: AiOptions): AiClient | null {
+  if (!ai) return null;
+  if (ai.client) return ai.client;
+  if (ai.gatewayKey) {
+    return createGatewayClient({ apiKey: ai.gatewayKey, model: ai.gatewayModel });
+  }
+  if (ai.apiKey) {
+    return createZenClient({
+      apiKey: ai.apiKey,
+      model: ai.model ?? DEFAULT_AI_MODEL,
+      endpoint: ai.endpoint ?? DEFAULT_AI_ENDPOINT,
+    });
+  }
+  return null;
+}
+
+/** Nombre del modelo efectivo (logs y respuesta), siguiendo la precedencia. */
+export function resolveAiModel(ai?: AiOptions): string {
+  if (!ai) return DEFAULT_AI_MODEL;
+  if (ai.client) return ai.model ?? DEFAULT_AI_MODEL;
+  if (ai.gatewayKey) return ai.gatewayModel ?? DEFAULT_GATEWAY_MODEL;
+  return ai.model ?? DEFAULT_AI_MODEL;
 }
 
 export interface InventoryRecommendation {
@@ -51,16 +90,8 @@ export function createAiService(deps: {
   ai?: AiOptions;
 }) {
   const reportRepo = createReportRepository(deps.db);
-  const model = deps.ai?.model ?? DEFAULT_AI_MODEL;
-  const client: AiClient | null =
-    deps.ai?.client ??
-    (deps.ai?.apiKey
-      ? createZenClient({
-          apiKey: deps.ai.apiKey,
-          model,
-          endpoint: deps.ai.endpoint ?? DEFAULT_AI_ENDPOINT,
-        })
-      : null);
+  const model = resolveAiModel(deps.ai);
+  const client: AiClient | null = createAiClient(deps.ai);
 
   async function inventoryRecommendation(days: number): Promise<InventoryRecommendation> {
     console.log(`[ai] recomendación de inventario solicitada (días=${days})`);
@@ -89,14 +120,10 @@ export function createAiService(deps: {
     const sales = await reportRepo.salesByFlavor(businessId, from, to);
     const rows = mergeInventorySales(inventory, sales, days);
     const unitsSold = rows.reduce((acc, r) => acc + r.unitsSold, 0);
-    console.log(`[ai] datos cargidos: ${rows.length} sabores, ${unitsSold} unidades vendidas`);
+    console.log(`[ai] datos cargados: ${rows.length} sabores, ${unitsSold} unidades vendidas`);
 
     if (!client) {
-      throw new ApiError(
-        503,
-        "AI_NOT_CONFIGURED",
-        "La recomendación con IA no está configurada en este servidor.",
-      );
+      throw aiNotConfigured();
     }
 
     const state = buildState(rows, days);
@@ -114,11 +141,7 @@ export function createAiService(deps: {
     const parsed = systemOneResponseSchema.safeParse(raw);
     if (!parsed.success) {
       console.error("[ai] respuesta del modelo con forma inválida:", parsed.error.issues);
-      throw new ApiError(
-        502,
-        "AI_INVALID_RESPONSE",
-        "La respuesta del servicio de IA no es válida. Intenta nuevamente.",
-      );
+      throw aiInvalidResponse();
     }
 
     // Validación semántica: el modelo solo puede elegir opciones que
@@ -126,11 +149,7 @@ export function createAiService(deps: {
     const result = interpretAnswers(rows, parsed.data.answers, days);
     if (!result.ok) {
       console.error(`[ai] respuesta del modelo inválida: ${result.error}`);
-      throw new ApiError(
-        502,
-        "AI_INVALID_RESPONSE",
-        "La respuesta del servicio de IA no es válida. Intenta nuevamente.",
-      );
+      throw aiInvalidResponse();
     }
 
     const rec = result.recommendation;
