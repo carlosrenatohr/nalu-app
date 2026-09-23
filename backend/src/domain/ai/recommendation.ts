@@ -141,14 +141,15 @@ export function buildQuestions(rows: RecommendationRow[], days: number): SystemO
     criteria[r.flavorId] = `${r.name}: ${r.available} disponibles, ${r.unitsSold} vendidas en los últimos ${days} días`;
   }
   criteria[NONE_OPTION] =
-    "Ninguno: los datos no son suficientes para recomendar un sabor con confianza";
+    "Ninguno: no hay ni una sola venta registrada en la ventana (sin ventas no se puede priorizar)";
 
   return {
     flavor: {
       type: "choice",
       instructions:
-        "¿Qué sabor debería priorizarse para la venta? Considera JUNTO la rotación de ventas recientes y el inventario disponible. " +
-        "Si no hay ventas o los datos no alcanzan para recomendar con confianza, elige 'ninguno'.",
+        "Elige el sabor que debería priorizarse para la venta, considerando JUNTO la rotación de ventas recientes y el inventario disponible. " +
+        "Priorizar es relativo: SIEMPRE hay un sabor que conviene más que los demás según estos datos — elige el mejor. " +
+        "Solo elige 'ninguno' si en la ventana no hay registrada ni una sola venta.",
       criteria,
     },
     priority: {
@@ -237,8 +238,11 @@ export function interpretAnswers(
   const probabilities = mapProbabilities(flavorAnswer.probabilities, rows);
 
   if (flavorAnswer.choice === NONE_OPTION) {
+    const totalSold = rows.reduce((acc, r) => acc + r.unitsSold, 0);
     return insufficient(
-      "Jev no vio datos suficientes para recomendar un sabor con confianza.",
+      totalSold === 0
+        ? `Todavía no hay ventas registradas en los últimos ${days} días, así que Jev no puede recomendar qué sabor impulsar. ¡Tu primera venta lo desbloquea! 🍧`
+        : "Jev no encontró un sabor claro que priorizar con estos datos.",
       confidence,
       probabilities,
     );

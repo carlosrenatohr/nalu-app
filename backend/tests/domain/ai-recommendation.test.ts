@@ -112,7 +112,7 @@ describe("buildState / buildQuestions (contexto para Jev)", () => {
       "f-oreo",
       NONE_OPTION,
     ]);
-    expect(questions.flavor.criteria[NONE_OPTION]).toContain("confianza");
+    expect(questions.flavor.criteria[NONE_OPTION]).toContain("venta");
     expect(questions.flavor.instructions).toContain("inventario");
     expect(Object.keys(questions.priority.criteria).sort()).toEqual(["high", "low", "medium"]);
     expect(questions.priority.type).toBe("choice");
@@ -184,7 +184,20 @@ describe("interpretAnswers (nunca confiar ciegamente en el modelo)", () => {
     expect(result.recommendation.flavor).toBeNull();
     expect(result.recommendation.priority).toBeNull();
     expect(result.recommendation.insufficientData).toBe(true);
-    expect(result.recommendation.reason).toContain("confianza");
+    expect(result.recommendation.reason).toContain("sabor claro");
+  });
+
+  it("'ninguno' sin ninguna venta explica que faltan ventas, no stock", () => {
+    const result = interpretAnswers(
+      rows.map((r) => ({ ...r, unitsSold: 0 })),
+      { ...valid, flavor: { ...valid.flavor, choice: NONE_OPTION } },
+      30,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.recommendation.flavor).toBeNull();
+    expect(result.recommendation.reason).toContain("no hay ventas registradas");
+    expect(result.recommendation.reason).toContain("primera venta");
   });
 
   it("confianza por debajo del umbral → datos insuficientes", () => {
