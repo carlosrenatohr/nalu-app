@@ -65,8 +65,15 @@ test.describe("Smoke básico de Nalu", () => {
     // 1) Elegir ubicación (semilla: Casa, Puesto, Otro)
     await page.getByRole("radio", { name: "Casa" }).click();
 
-    // 2) Sumar 2 paletas del primer sabor con inventario disponible
-    const firstFlavor = page.locator("li").filter({ has: page.getByRole("button", { name: "Agregar uno" }) }).first();
+    // 2) Sumar 2 paletas de un sabor con stock holgado. La lista va
+    // ordenada por stock ascendente (el más escaso primero) y guanábana
+    // de la semilla tiene solo 1 paleta → su stepper se bloquea tras el
+    // primer toque, así que filtramos al primer sabor con 2+ disponibles.
+    const firstFlavor = page
+      .locator("li")
+      .filter({ has: page.getByRole("button", { name: "Agregar uno" }) })
+      .filter({ hasText: /[2-9] disponibles|[1-9][0-9]+ disponibles/ })
+      .first();
     const addButton = firstFlavor.getByRole("button", { name: "Agregar uno" });
     await addButton.click();
     await addButton.click();
