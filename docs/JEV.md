@@ -1,6 +1,6 @@
 # 🤖 Jev en Nalu — Guía de aprendizaje
 
-> **Qué es esto:** apuntes para entender, de un vistazo, cómo Jev (System One, vía OpenCode Zen) quedó integrado en Nalu, **qué aprendimos** construyéndolo y **cómo leerlo** cuando se mire la demo. Con diagramas y capturas reales.
+> **Qué es esto:** apuntes para entender, de un vistazo, cómo Jev (System One) quedó integrado en Nalu — hoy vía **Vercel AI Gateway**, antes directo vía OpenCode Zen (ver §12) —, **qué aprendimos** construyéndolo y **cómo leerlo** cuando se mire la demo. Con diagramas y capturas reales.
 
 ---
 
@@ -47,10 +47,12 @@ flowchart LR
     Ctrl --> Svc["ai.service<br/>📜 logs de etapa"]
     Svc --> DB[("D1 / SQLite<br/>inventario + ventas")]
     Svc --> Dom["domain/ai<br/>buildState + buildQuestions"]
-    Dom --> Zen["zen-client<br/>AbortSignal 15 s"]
-    Zen --> Jev(("Jev<br/>jev-1.13-free"))
-    Jev --> Zen
-    Zen --> Val["interpretAnswers<br/>Zod + semántica<br/>¿opción existe? ¿conf ≥ 0.3?"]
+    Dom --> Sel{"¿Clave de<br/>AI Gateway?"}
+    Sel -- sí (prod) --> GW["gateway-client<br/>AI SDK · 15 s"]
+    Sel -- no (respaldo) --> Zen["zen-client<br/>fetch · 15 s"]
+    GW --> Jev(("Jev<br/>typesafe-ai/jev<br/>o jev-1.13-free"))
+    Zen --> Jev
+    Jev --> Val["interpretAnswers<br/>Zod + semántica<br/>¿opción existe? ¿conf ≥ 0.3?"]
     Val --> Ctrl
     Ctrl --> UI
 
@@ -71,7 +73,7 @@ sequenceDiagram
     participant FE as Tarjeta IA
     participant BE as ai.service
     participant DB as D1
-    participant Z as zen-client
+    participant C as cliente IA (gateway o zen)
     participant J as Jev · System One
 
     U->>FE: Toca "✨ Analizar inventario"
@@ -81,12 +83,12 @@ sequenceDiagram
     BE->>DB: sabores + stock + ventas de la ventana
     DB-->>BE: 6 sabores · 27 unidades vendidas
     Note over BE: 📜 "datos cargidos"
-    BE->>Z: state (datos reales) + 2 questions (flavor, priority)
-    Z->>J: POST /zen/v1/systemone (timeout 15 s)
+    BE->>C: state (datos reales) + 2 questions (flavor, priority)
+    C->>J: evaluate (15 s): Gateway typesafe-ai/jev<br/>o respaldo Zen /systemone
     activate J
-    J-->>Z: answers + usage (in/out tokens)
+    J-->>C: answers + usage (in/out tokens)
     deactivate J
-    Z-->>BE: respuesta tipada
+    C-->>BE: respuesta tipada
     Note over BE: 📜 "respuesta del modelo: uso in=1038 out=348"
     BE->>BE: Zod + semántica (opción ∈ lista, conf ≥ 0.3)
     BE->>BE: reason = plantilla + datos verificados
@@ -210,20 +212,24 @@ stateDiagram-v2
 
     note right of success: 🍓 sabor + prioridad + barras
     note right of insufficient: 🤔 "Aún no hay una\nrecomendación clara"
-    note right of error: 😕 "No fue posible obtener\nla recomendación."
+    note right of error: 😕 Título + pista POR CÓDIGO\n(429 → "Jev está saturado…")
 ```
 
 | Situación | HTTP | Comportamiento |
 |---|---|---|
-| Sin `OPENCODE_ZEN_API_KEY` | 503 `AI_NOT_CONFIGURED` | La app sigue: aviso amigable |
+| Sin ninguna clave de IA | 503 `AI_NOT_CONFIGURED` | La app sigue: aviso amigable |
 | Proveedor caído / red | 502 `AI_UNAVAILABLE` | Reintentar disponible |
 | Sin respuesta en 15 s | 504 `AI_TIMEOUT` | `AbortSignal` en el cliente |
-| Rate limit del proveedor | 429 `AI_RATE_LIMIT` | Mensaje controlado |
+| Rate limit del proveedor | 429 `AI_RATE_LIMIT` | «Jev está saturado 💤»: esperar un minuto y reintentar |
 | Respuesta con forma rara u opción fuera de lista | 502 `AI_INVALID_RESPONSE` | Zod + validación semántica |
 | Sin ventas en la ventana o Jev elige `ninguno` o conf < 0.3 | **200** | **No es error**: `insufficientData: true` + mensaje amigable |
 | Inventario vacío (0 sabores) | **200** | Se salta el modelo (costo 0) |
 
 **Nunca** se expone un stack trace ni un mensaje en inglés al usuario; los errores de negocio llevan contrato `{ success: false, error: { code, message } }`.
+
+La tarjeta traduce **cada código** a su propia copia (título + pista + detalle del servidor entre comillas) — jamás queda un estado vacío.
+
+**El toggle 👁️/🙈:** el usuario puede ocultar la tarjeta desde su encabezado. El cuerpo colapsa con una transición suave (`grid-rows` 1fr ↔ 0fr + opacidad, respetando `prefers-reduced-motion`), el contenido oculto queda `inert` (fuera del árbol de accesibilidad y del orden de tabulación) y la preferencia persiste en `localStorage` (`nalu.jev.recomendacion-visible`). Así Nalu sigue 100% operable aunque Jev falle.
 
 ---
 
@@ -265,7 +271,9 @@ stateDiagram-v2
 
 | Pieza | Dónde vive | Nota |
 |---|---|---|
-| `OPENCODE_ZEN_API_KEY` | **Secreto de Workers** (prod) / `backend/.env` (local, gitignored) | **Nunca** en el repo, logs ni frontend |
+| `AI_GATEWAY_API_KEY` | **Secreto de Workers** (prod) / `backend/.env` (local, gitignored) | Clave del Vercel AI Gateway (vck_…) — **preferida**; **nunca** en el repo, logs ni frontend |
+| `AI_GATEWAY_MODEL` | `wrangler.jsonc` → `vars` | Alias `typesafe-ai/jev` (no sensible) |
+| `OPENCODE_ZEN_API_KEY` | **Secreto de Workers** (respaldo) / `backend/.env` (local) | Respaldo / dev local; **nunca** en el repo, logs ni frontend |
 | `ZEN_MODEL` | `wrangler.jsonc` → `vars` | `jev-1.13-free` (no sensible) |
 | `ZEN_ENDPOINT` | `wrangler.jsonc` → `vars` | `https://opencode.ai/zen/v1/systemone` |
 
@@ -275,7 +283,8 @@ Configurar en prod (una vez):
 
 ```bash
 cd backend
-pnpm exec wrangler secret put OPENCODE_ZEN_API_KEY
+pnpm exec wrangler secret put AI_GATEWAY_API_KEY      # preferido (prod)
+pnpm exec wrangler secret put OPENCODE_ZEN_API_KEY    # respaldo (opcional)
 ```
 
 ---
@@ -285,10 +294,12 @@ pnpm exec wrangler secret put OPENCODE_ZEN_API_KEY
 | Nivel | Archivo | Cubre |
 |---|---|---|
 | Dominio puro | `backend/tests/domain/ai-recommendation.test.ts` | Estado/preguntas/interpretación, `ninguno`, confianza baja, cero ventas |
-| Cliente HTTP | `backend/tests/ai/zen-client.test.ts` | 401→503, 429, 5xx, timeout/red (con fetch mockeado) |
+| Cliente HTTP (Zen) | `backend/tests/ai/zen-client.test.ts` | 401→503, 429, 5xx, timeout/red (con fetch mockeado) |
+| Cliente Gateway | `backend/tests/ai/gateway-client.test.ts` | Mapeo de respuesta (confianza/usage) y errores 429/401/400/5xx/timeout/falta de clave (AI SDK mockeado) |
+| Selección de proveedor | `backend/tests/ai/client-selection.test.ts` | Precedencia gateway > Zen > ninguno, sin red |
 | API | `backend/tests/api/ai-recommendation.test.ts` | Éxito, esquema inválido, proveedor caído, inventario vacío |
-| Componente | `frontend/src/features/inventory/AiRecommendationCard.test.tsx` | idle/loading/success/error/insuficiente + selector de ventana |
-| E2E | `e2e/tests/ai-recommendation.spec.ts` | La tarjeta en el navegador: siempre un estado definido, sin stack trace |
+| Componente | `frontend/src/features/inventory/AiRecommendationCard.test.tsx` | idle/loading/success/error/insuficiente + selector de ventana + copia por código + toggle ocultar/mostrar |
+| E2E | `e2e/tests/ai-recommendation.spec.ts` | La tarjeta en el navegador: siempre un estado definido, sin stack trace + toggle |
 
 Ningún test hace llamadas reales al modelo (cliente inyectable/mock) — la suite es determinista y gratis.
 
@@ -303,4 +314,49 @@ Ningún test hace llamadas reales al modelo (cliente inyectable/mock) — la sui
 
 ---
 
-*Documento vivo — actualízalo cuando Jev cambie. Última actualización: v1.5.0.*
+## 12. Incidente 429 y migración al Vercel AI Gateway 🌩️
+
+**El problema (producción).** Tras desplegar v1.5.0, la tarjeta fallaba **siempre** en prod con `429 AI_RATE_LIMIT`. El diagnóstico:
+
+```mermaid
+flowchart LR
+    A["Workers (IP egress Cloudflare)"] -->|"429 sostenido"| Z[OpenCode Zen]
+    B["IP local (tu máquina)"] -->|"3/3 OK · ~700 ms"| Z
+    C{"¿La clave o el código?"} -->|"no: misma clave,<br/>mismo payload"| D["Restricción por ORIGEN<br/>en Zen"]
+```
+
+1. `wrangler tail` mostraba el pipeline **completo** (15 sabores, 32 vendidas) hasta la llamada al modelo → 429 upstream. Logs, validación y datos: todo bien.
+2. La **misma clave + mismo payload** funcionaba **3/3** (~700 ms) desde la IP local.
+3. Conclusión: **OpenCode Zen limita/bloquea por origen** — las IPs salientes de Cloudflare Workers quedan rate-limited de forma sostenida. No era la clave ni el código.
+
+**La solución: Vercel AI Gateway.** El backend llama ahora a Jev con el AI SDK (`experimental_evaluate`) contra `ai-gateway.vercel.sh`, usando el alias **`typesafe-ai/jev`** — el mismo modelo, otro origen serverless soportado. La receta es exactamente la que ya usa **Kev** (proyecto hermano) en su `jev-evaluate.mjs`/`jev.py`.
+
+**Precedencia de proveedor** (`ai.service.ts`):
+
+1. `AI_GATEWAY_API_KEY` (vck_…) → **gateway** — producción.
+2. `OPENCODE_ZEN_API_KEY` → **Zen** — desarrollo local / respaldo.
+3. Ninguna → `503 AI_NOT_CONFIGURED` (la app sigue igual).
+
+El contrato de errores es **idéntico en ambos proveedores** (fábricas compartidas en `services/ai/errors.ts`): la UI distingue 429, timeout, no configurado… sin importar quién responda. La respuesta del gateway se mapea a la forma System One (`answers` + confianza desde `providerMetadata.typesafe.confidence`, con *fallback* a `probabilities[choice]`) y la sigue validando el mismo Zod + semántica de siempre.
+
+**Capa de UX (por si vuelve a fallar).** Como el proveedor puede fallar de nuevo, la tarjeta ganó:
+
+- **Mensajes por código**: 429 → *«Jev está saturado 💤»* + pista de esperar; timeout → *«Jev tardó demasiado 🐢»*; etc. Siempre título + pista + detalle — nunca un estado vacío.
+- **Toggle 👁️/🙈** para ocultar la tarjeta: colapsa con transición suave (respetando `prefers-reduced-motion`), contenido oculto `inert`, preferencia en `localStorage`.
+
+---
+
+## 13. Alternativas evaluadas 🧭
+
+| Alternativa | Qué es | Veredicto |
+|---|---|---|
+| **Vercel AI Gateway** ✅ | Gateway serverless multi-modelo (Vercel) con alias `typesafe-ai/jev` | **Elegido**: receta probada por Kev, cuenta ya existente, mismo Jev, otro origen. Clave `vck_` server-side |
+| **kev** | Familia de modelos *self-host* compatible con la API/contrato de Jev | A futuro si queremos independencia total de terceros: requiere GPU (Modal/replica propia). No para hoy |
+| **laya** | Modelo *self-host* más ligero, compatible con Jev | Respaldo auto-hospedable interesante; su zero-shot es más débil que Jev en esta tarea |
+| **Zen directo** (origen local) | Como en v1.5.0 | Se mantiene como respaldo y desarrollo local; desde IPs de Workers en prod queda bloqueado por origen |
+
+Lección meta: **la restricción no era del modelo, sino del camino**. El contrato tipado de Jev hizo trivial cambiar de transporte — mismas preguntas, mismas respuestas, mismo validador.
+
+---
+
+*Documento vivo — actualízalo cuando Jev cambie. Última actualización: migración al AI Gateway (post-v1.5.0).*

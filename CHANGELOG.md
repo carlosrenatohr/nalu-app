@@ -3,6 +3,16 @@
 Todos los cambios notables de Nalu.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [Unreleased]
+
+### Added
+- **Toggle ocultar/mostrar la tarjeta de IA** en Inventario (👁️/🙈): el cuerpo colapsa con transición suave (respeta `prefers-reduced-motion`), el contenido oculto queda `inert` y la preferencia persiste en `localStorage`; la app queda 100% operable si el proveedor de IA falla.
+- Mensajes de IA **por código** en la tarjeta (429 «Jev está saturado 💤», timeout, no configurado…): título + pista + detalle del servidor, nunca un estado vacío.
+- Proveedor **Vercel AI Gateway** para Jev (`AI_GATEWAY_API_KEY`, alias `typesafe-ai/jev`) con precedencia sobre OpenCode Zen y contrato de errores compartido (`services/ai/errors.ts`); tests nuevos de gateway y de selección de proveedor.
+
+### Fixed
+- **`429 AI_RATE_LIMIT` en producción**: OpenCode Zen limita por origen las IPs salientes de Cloudflare Workers; el backend llama a Jev vía Vercel AI Gateway (Zen queda como respaldo local). Diagnóstico en `docs/JEV.md` §12.
+
 ## [1.5.0] - 2026-09-22
 
 ### Added
