@@ -199,6 +199,18 @@ export interface NewSaleInput {
   items: { flavorId: string; quantity: number; unitPrice: number }[];
 }
 
+/** Recomendación IA de inventario (Jev / System One). */
+export interface InventoryRecommendation {
+  flavor: { id: string; name: string; emoji: string } | null;
+  priority: "high" | "medium" | "low" | null;
+  reason: string;
+  confidence: number;
+  probabilities: { id: string; name: string; emoji: string; p: number }[];
+  insufficientData: boolean;
+  range: { from: string; to: string; days: number };
+  model: string;
+}
+
 export interface NewPurchaseInput {
   purchaseDate: string;
   supplierId: string;

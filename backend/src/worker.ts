@@ -30,7 +30,17 @@ async function getBusinessId(): Promise<string> {
 
 const services = createServices({ db, getBusinessId });
 
-const app = createApp({ db, getBusinessId });
+// Recomendación IA: la API key es un secreto de Workers (wrangler secret)
+// y JAMÁS se expone al frontend; el modelo/endpoint son vars no sensibles.
+const app = createApp({
+  db,
+  getBusinessId,
+  ai: {
+    apiKey: env.OPENCODE_ZEN_API_KEY,
+    model: env.ZEN_MODEL,
+    endpoint: env.ZEN_ENDPOINT,
+  },
+});
 
 app.listen(3000);
 

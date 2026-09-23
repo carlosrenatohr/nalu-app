@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ExitModal } from "./ExitModal";
+import { AiRecommendationCard } from "./AiRecommendationCard";
 import { IconGift, IconPlus } from "@/components/ui/icons";
 import type { FlavorInventory } from "@/types";
 
@@ -58,6 +59,7 @@ export function InventoryPage() {
         <EmptyState emoji="😅" title="No pudimos cargar el inventario" description={error} />
       ) : inventory && inventory.length > 0 ? (
         <>
+          <AiRecommendationCard />
           <div className="sm:max-w-56">
             <Select
               label="Ordenar"

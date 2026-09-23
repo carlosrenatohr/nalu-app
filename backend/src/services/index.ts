@@ -9,8 +9,13 @@ import { createReportService } from "./report.service";
 import { createSaleService } from "./sale.service";
 import { createSupplierService } from "./supplier.service";
 import { createSyncService } from "./sync.service";
+import { createAiService, type AiOptions } from "./ai.service";
 
-export function createServices(deps: { db: DrizzleDb; getBusinessId: () => Promise<string> }) {
+export function createServices(deps: {
+  db: DrizzleDb;
+  getBusinessId: () => Promise<string>;
+  ai?: AiOptions;
+}) {
   const { db, getBusinessId } = deps;
 
   const auth = createAuthService({ db, getBusinessId });
@@ -43,7 +48,14 @@ export function createServices(deps: { db: DrizzleDb; getBusinessId: () => Promi
     deleteSupplier: (payload) => suppliers.delete(payload.id as string).then((r) => ({ id: r.supplier.id })),
   });
 
-  return { auth, business, flavors, suppliers, locations, inventory, sales, purchases, reports, sync };
+  const ai = createAiService({
+    db,
+    getBusinessId,
+    getInventory: () => inventory.getInventory(),
+    ai: deps.ai,
+  });
+
+  return { auth, business, flavors, suppliers, locations, inventory, sales, purchases, reports, sync, ai };
 }
 
 export type Services = ReturnType<typeof createServices>;

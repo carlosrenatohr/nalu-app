@@ -11,6 +11,7 @@ import { createReportControllers } from "../controllers/report.controller";
 import { createBusinessControllers } from "../controllers/business.controller";
 import { createSyncControllers } from "../controllers/sync.controller";
 import { createAuthControllers } from "../controllers/auth.controller";
+import { createAiControllers } from "../controllers/ai.controller";
 import { requireAuth } from "../middleware/auth";
 import { validate, validateQuery } from "../middleware/validate";
 import { createSaleSchema, saleListQuerySchema, updateSaleSchema } from "../schemas/sale";
@@ -26,10 +27,13 @@ import { updateBusinessSchema, createLocationSchema, updateLocationSchema } from
 import { dateRangeQuerySchema } from "../schemas/reports";
 import { syncRequestSchema } from "../schemas/sync";
 import { loginSchema, changePinSchema } from "../schemas/auth";
+import { aiRecommendationQuerySchema } from "../schemas/ai";
+import type { AiOptions } from "../services/ai.service";
 
 export function createApiRouter(deps: {
   db: DrizzleDb;
   getBusinessId: () => Promise<string>;
+  ai?: AiOptions;
 }): Router {
   const services = createServices(deps);
   const router = Router();
@@ -100,6 +104,14 @@ export function createApiRouter(deps: {
   // Sincronización offline (outbox)
   const sync = createSyncControllers(services);
   router.post("/sync/operations", validate(syncRequestSchema), sync.apply);
+
+  // Recomendación IA de inventario (experimento Jev / System One)
+  const ai = createAiControllers(services);
+  router.post(
+    "/ai/inventory-recommendation",
+    validateQuery(aiRecommendationQuerySchema),
+    ai.inventoryRecommendation,
+  );
 
   return router;
 }

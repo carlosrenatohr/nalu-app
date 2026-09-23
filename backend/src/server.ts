@@ -4,6 +4,10 @@ import { openLocalDb } from "./db";
 import { businesses } from "./db/schema";
 import { seedDatabase } from "./db/seed";
 import { resolveBusinessId } from "./config/bootstrap";
+import {
+  DEFAULT_AI_ENDPOINT,
+  DEFAULT_AI_MODEL,
+} from "./services/ai.service";
 
 // ---------------------------------------------------------------------
 // Entrada de desarrollo local: Express + node:sqlite.
@@ -13,6 +17,14 @@ import { resolveBusinessId } from "./config/bootstrap";
 const PORT = Number(process.env.PORT ?? 3002);
 
 async function main(): Promise<void> {
+  // Variables locales desde backend/.env (gitignored). Si no existe,
+  // seguimos con el entorno del sistema (la app funciona sin IA).
+  try {
+    process.loadEnvFile();
+  } catch {
+    // Sin .env: nada que cargar.
+  }
+
   // DB_PATH permite apuntar a otra base (útil para e2e con datos limpios).
   const { db, conn } = openLocalDb(process.env.DB_PATH);
 
@@ -41,6 +53,11 @@ async function main(): Promise<void> {
     db,
     getBusinessId,
     corsOrigin: process.env.CORS_ORIGIN ?? "http://localhost:5173",
+    ai: {
+      apiKey: process.env.OPENCODE_ZEN_API_KEY,
+      model: process.env.ZEN_MODEL ?? DEFAULT_AI_MODEL,
+      endpoint: process.env.ZEN_ENDPOINT ?? DEFAULT_AI_ENDPOINT,
+    },
   });
 
   app.listen(PORT, () => {

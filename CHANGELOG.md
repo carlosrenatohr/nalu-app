@@ -3,6 +3,19 @@
 Todos los cambios notables de Nalu.
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 
+## [1.5.0] - 2026-09-22
+
+### Added
+- **Recomendación IA de inventario con Jev** (System One vía OpenCode Zen): nuevo endpoint `POST /api/ai/inventory-recommendation?days=1–365` bajo autenticación, que combina inventario + ventas reales de la ventana y devuelve sabor a priorizar, prioridad, razón compuesta en el servidor, confianza y distribución completa de probabilidades.
+- Tarjeta jugable ✨ en la pantalla de Inventario: selector de ventana 7/30/90 días (re-analiza al instante), barra de confianza, barras de probabilidad por sabor y estados idle/carga/éxito/error/datos insuficientes.
+- Validación en dos capas (Zod + semántica: opción ∈ lista enviada y confianza ≥ 0.3) y errores controlados `AI_NOT_CONFIGURED` (503), `AI_UNAVAILABLE` (502), `AI_TIMEOUT` (504), `AI_RATE_LIMIT` (429) e `AI_INVALID_RESPONSE` (502), todos en español y sin stack traces.
+- API key exclusiva server-side (`OPENCODE_ZEN_API_KEY` como secreto de Workers / `backend/.env` local); logs de etapa sin credenciales.
+- Tests: dominio, cliente Zen, API, componente y e2e (2 suites nuevas en Playwright) — sin llamadas reales al modelo.
+- Documentación: guía de aprendizaje `docs/JEV.md` con diagramas y capturas, más referencia del endpoint en `docs/API-REFERENCE.md` y secretos en `docs/DEPLOYMENT.md`.
+
+### Fixed
+- e2e de venta rápida: elegir un sabor con stock ante el orden por stock ascendente (regresión preexistente de `f77e0b1`).
+
 ## [1.3.0] - 2026-09-20
 
 ### Added

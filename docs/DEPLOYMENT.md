@@ -109,6 +109,25 @@ Nalu puede enviar **avisos de stock bajo** y el **resumen del día anterior** po
 
 > ⚠️ **Límite Free**: la cuenta Workers Free permite **5 cron triggers por cuenta** y esta cuenta ya los tiene ocupados por otros proyectos. El handler `scheduled` de `src/worker.ts` está listo; mientras el plan no lo permita, el job simplemente no se dispara (la app funciona igual).
 
+## Recomendación IA (Jev / System One)
+
+La tarjeta ✨ del inventario consulta el modelo **Jev** (OpenCode Zen) con datos reales de inventario y ventas.
+
+### Configurar (una vez)
+
+1. **Obtener la API key** de OpenCode Zen (opencode.ai → cuenta → API keys).
+2. **Producción:** guardar el secreto del Worker (desde `backend/`):
+
+   ```bash
+   pnpm exec wrangler secret put OPENCODE_ZEN_API_KEY
+   ```
+
+3. **Local:** crea `backend/.env` desde la plantilla `backend/.env.example` y pega la clave. El archivo está en `.gitignore` y jamás se comitea.
+
+> 🔐 La API key **solo vive en el servidor** (secreto de Workers / `.env` local): nunca aparece en el repo, en los logs ni en el frontend. El modelo y endpoint ya vienen en `wrangler.jsonc` → `vars` (`ZEN_MODEL`, `ZEN_ENDPOINT`), que no son sensibles.
+
+> Sin la clave la app funciona igual: el endpoint responde `503 AI_NOT_CONFIGURED` y la tarjeta muestra un mensaje amigable.
+
 ## Variables de entorno
 
 | Variable | Dónde | Descripción |
@@ -117,6 +136,9 @@ Nalu puede enviar **avisos de stock bajo** y el **resumen del día anterior** po
 | `CLOUDFLARE_ACCOUNT_ID` | Secretos de GitHub / CLI | Cuenta Cloudflare |
 | `CORS_ORIGIN` | Local (opcional) | Origen permitido en desarrollo |
 | `ALERT_FROM_EMAIL` | `wrangler.jsonc` → `vars` | Remitente de las alertas (dominio verificado) |
+| `OPENCODE_ZEN_API_KEY` | `wrangler secret put` (prod) / `backend/.env` (local) | API key de OpenCode Zen para Jev — **secreta, nunca en el repo** |
+| `ZEN_MODEL` | `wrangler.jsonc` → `vars` / `backend/.env` | Modelo a usar (default `jev-1.13-free`) |
+| `ZEN_ENDPOINT` | `wrangler.jsonc` → `vars` / `backend/.env` | Endpoint System One (default `https://opencode.ai/zen/v1/systemone`) |
 
 ### Permisos del token de Cloudflare
 
