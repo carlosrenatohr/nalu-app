@@ -122,8 +122,8 @@ export function AppLayout() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Registrar compra"
-                onClick={() => navigate("/purchases/new")}
+                aria-label="Registrar venta"
+                onClick={() => navigate("/sales/new")}
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-mango text-white shadow-pop transition-transform active:scale-95"
               >
                 <IconCart className="h-5 w-5" />

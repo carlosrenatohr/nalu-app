@@ -97,6 +97,7 @@ Add a row to the appropriate project section:
 | F7 | Integridad SQLite: `db:integrity` + `db:backup:local` + docs | ✅ Done | #28 |
 | F8 | "Ajustar stock" desde Sabores vía `ExitModal` (motivo obligatorio) + emoji solo en modal | ✅ Done | #29 |
 | F9 | Sweep final: gate completo, regresión de reglas críticas, board/docs/memory al día | ✅ Done | #30 |
+| F10 | Fix: el widget global del header abre la venta rápida (no la compra) | ✅ Done | #31 |
 
 ## Releases
 
@@ -106,6 +107,7 @@ Add a row to the appropriate project section:
 | **v1.1.0** | 2026-08-17 | CRUD sabores/ventas/proveedores |
 | **v1.2.0** | 2026-09-02 | Sprint 15 |
 | **v1.3.0** | 2026-09-20 | QA Feedback funcional y UX |
+| **v1.4.0** | 2026-09-22 | Plan F0–F10: búsqueda, stock, offline, integridad BD y acceso rápido a venta |
 
 ## Post-incidente
 
