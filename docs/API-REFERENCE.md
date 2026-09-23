@@ -369,6 +369,53 @@ Cada operación tiene un `type` (discriminante) y un `payload`:
 
 ---
 
+## Recomendación IA
+
+### `POST /api/ai/inventory-recommendation`
+
+Recomendación de qué sabor priorizar para la venta, evaluada por el modelo **Jev** de System One (vía OpenCode Zen) con datos reales de inventario y ventas recientes. **\[AUTH\]**
+
+| Query | Tipo | Descripción |
+|-------|------|-------------|
+| `days` | 1–365 | Ventana de ventas en días (default: 30) |
+
+El servidor arma el contexto con datos reales, el modelo solo **decide** (elección + confianza + probabilidades) y `reason` se compone en el backend con los datos verificados. La API key es solo server-side y jamás viaja al cliente.
+
+**Respuesta (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "flavor": { "id": "<uuid>", "name": "Maracumango", "emoji": "🥭" },
+    "priority": "high",
+    "reason": "9 unidades vendidas en los últimos 30 días y quedan 15 paletas disponibles.",
+    "confidence": 0.9,
+    "probabilities": [
+      { "id": "<uuid>", "name": "Maracumango", "emoji": "🥭", "p": 0.7 },
+      { "id": "ninguno", "name": "Sin recomendación", "emoji": "🤔", "p": 0.1 }
+    ],
+    "insufficientData": false,
+    "range": { "from": "2026-08-23", "to": "2026-09-22", "days": 30 },
+    "model": "jev-1.13.0"
+  }
+}
+```
+
+Cuando los datos no alcanzan (sin inventario, el modelo elige `ninguno` o confianza < 0.3), la respuesta sigue siendo 200 con `flavor`/`priority` en `null`, `insufficientData: true` y un `reason` amigable. El modelo nunca ejecuta acciones: solo produce esta recomendación.
+
+**Errores específicos:**
+
+| Código | HTTP | Cuándo |
+|--------|------|--------|
+| `AI_NOT_CONFIGURED` | 503 | Falta `OPENCODE_ZEN_API_KEY` o credenciales inválidas |
+| `AI_UNAVAILABLE` | 502 | Proveedor de IA no disponible o error de red |
+| `AI_TIMEOUT` | 504 | El modelo no respondió en 15 s |
+| `AI_RATE_LIMIT` | 429 | Límite de peticiones del proveedor |
+| `AI_INVALID_RESPONSE` | 502 | Respuesta con forma inválida u opción fuera de las enviadas |
+
+---
+
 ## Errores globales
 
 | Código | HTTP | Descripción |
@@ -381,3 +428,8 @@ Cada operación tiene un `type` (discriminante) y un `payload`:
 | `INTERNAL_ERROR` | 500 | Error inesperado del servidor |
 | `INSUFFICIENT_INVENTORY` | 409 | Stock insuficiente |
 | `BUSINESS_NOT_CONFIGURED` | 500 | Negocio no configurado (falta seed) |
+| `AI_NOT_CONFIGURED` | 503 | Recomendación IA sin API key configurada |
+| `AI_UNAVAILABLE` | 502 | Proveedor de IA no disponible |
+| `AI_TIMEOUT` | 504 | El proveedor de IA no respondió a tiempo |
+| `AI_RATE_LIMIT` | 429 | Rate limit del proveedor de IA |
+| `AI_INVALID_RESPONSE` | 502 | Respuesta inválida del modelo de IA |
