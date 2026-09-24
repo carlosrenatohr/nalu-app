@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useAsync } from "@/hooks/useAsync";
 import { useBusiness } from "@/hooks/useBusiness";
-import { reportsApi } from "@/services/api";
+import { flavorsApi, reportsApi } from "@/services/api";
 import {
   addDays,
   formatMoney,
@@ -16,7 +17,17 @@ import { Button } from "@/components/ui/Button";
 import { BarChart } from "@/components/ui/BarChart";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ReportCard } from "./ReportCard";
+import { ShareCard, FICHA_HEIGHT, FICHA_WIDTH } from "./ShareCard";
+import {
+  FONDOS,
+  FRASES_MOTIVACIONALES,
+  INDICE_FRASE_KEY,
+  INDICE_FONDO_KEY,
+  computeShares,
+  currentRotation,
+  generarQrSvg,
+  nextRotation,
+} from "./shareContent";
 import { exportReportImage, exportPurchasesPdf, exportSalesPdf } from "./exporters";
 import { useToast } from "@/components/ui/Toast";
 import { IconDownload, IconImage } from "@/components/ui/icons";
@@ -64,6 +75,14 @@ export function ReportsPage() {
   const [customFrom, setCustomFrom] = useState(localToday());
   const [customTo, setCustomTo] = useState(localToday());
   const reportCardRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [escala, setEscala] = useState(1);
+  // Rotación: cada generación de ficha usa una frase y un fondo distintos.
+  const [ficha, setFicha] = useState(() => ({
+    frase: currentRotation(INDICE_FRASE_KEY, FRASES_MOTIVACIONALES.length),
+    fondo: currentRotation(INDICE_FONDO_KEY, FONDOS.length),
+  }));
+  const [qrSvg, setQrSvg] = useState<string | null>(null);
 
   const today = localToday();
   const range = useMemo(
@@ -79,6 +98,45 @@ export function ReportsPage() {
 
   const report = sales.data;
   const isLoading = sales.loading;
+
+  // Catálogo de sabores: emoji por id para la ficha (si no, fallback 🍦).
+  const sabores = useAsync(() => flavorsApi.list(), []);
+  const emojiById = useMemo(
+    () => Object.fromEntries((sabores.data ?? []).map((f) => [f.id, f.emoji] as const)),
+    [sabores.data],
+  );
+
+  const shares = useMemo(
+    () => computeShares(report?.byFlavor ?? [], emojiById),
+    [report, emojiById],
+  );
+
+  // QR client-side, generado una vez (y asegurado antes de capturar).
+  useEffect(() => {
+    let vivo = true;
+    generarQrSvg()
+      .then((svg) => {
+        if (vivo) setQrSvg(svg);
+      })
+      .catch(() => {
+        /* sin QR la ficha igual se puede exportar */
+      });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  // La vista previa escala el nodo fijo 1080×1350 al ancho disponible.
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const ancho = entries[0]?.contentRect.width ?? 0;
+      if (ancho > 0) setEscala(ancho / FICHA_WIDTH);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const flavorBars = useMemo(
     () =>
@@ -112,9 +170,20 @@ export function ReportsPage() {
 
   async function handleImageExport() {
     if (!reportCardRef.current) return;
+    // Cada generación de ficha usa una frase y un fondo distintos (rotación local).
+    const nuevaFrase = nextRotation(INDICE_FRASE_KEY, FRASES_MOTIVACIONALES.length);
+    const nuevoFondo = nextRotation(INDICE_FONDO_KEY, FONDOS.length);
     try {
-      await exportReportImage(reportCardRef.current, `reporte-nalu-${range.from}`);
-      toast("Reporte listo para compartir");
+      // Asegura el QR listo antes de capturar (si aún no terminó de generar).
+      const svg = qrSvg ?? (await generarQrSvg());
+      flushSync(() => {
+        setQrSvg(svg);
+        setFicha({ frase: nuevaFrase, fondo: nuevoFondo });
+      });
+      const resultado = await exportReportImage(reportCardRef.current, `reporte-nalu-${range.from}`);
+      if (resultado === "descargada") toast("Imagen descargada");
+      else if (resultado === "compartida") toast("Ficha lista para compartir");
+      // "cancelada": el usuario cerró el compartir — no molestar con toast.
     } catch {
       toast("No se pudo generar la imagen", "error");
     }
@@ -270,9 +339,31 @@ export function ReportsPage() {
             )}
           </Card>
 
-          {/* Reporte visual (exportable a imagen) */}
-          <div ref={reportCardRef}>
-            <ReportCard report={report} businessName={business?.name ?? "Nalu"} currency={currency} />
+          {/* Ficha compartible (se captura a tamaño real: 1080×1350) */}
+          <div
+            ref={wrapperRef}
+            className="overflow-hidden rounded-[1.75rem] shadow-card ring-1 ring-cocoa/10"
+            style={{ height: escala * FICHA_HEIGHT }}
+          >
+            <div
+              ref={reportCardRef}
+              style={{
+                width: FICHA_WIDTH,
+                height: FICHA_HEIGHT,
+                transform: `scale(${escala})`,
+                transformOrigin: "top left",
+              }}
+            >
+              <ShareCard
+                businessName={business?.name ?? "Nalu"}
+                rangeFrom={report.range.from}
+                rangeTo={report.range.to}
+                shares={shares}
+                frase={FRASES_MOTIVACIONALES[ficha.frase] ?? ""}
+                fondoClases={FONDOS[ficha.fondo] ?? ""}
+                qrSvg={qrSvg}
+              />
+            </div>
           </div>
         </>
       ) : (

@@ -1,13 +1,14 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { toPng } from "html-to-image";
+import { toBlob } from "html-to-image";
 import { formatMoney, formatDateLong } from "@/lib/formatting/currency";
 import type { SalesReport, PurchasesReport } from "@/types";
 
 // ---------------------------------------------------------------------
 // Exportadores de reportes:
 //  1. PDF con branding Nalu (jspdf + autotable).
-//  2. Imagen PNG lista para WhatsApp (html-to-image sobre ReportCard).
+//  2. Imagen de la ficha compartible para WhatsApp (html-to-image sobre
+//     ShareCard, nodo fijo 1080×1350).
 // ---------------------------------------------------------------------
 
 const TURQUOISE: [number, number, number] = [21, 158, 155];
@@ -193,26 +194,44 @@ export function exportPurchasesPdf(
   doc.save(`compras-nalu-${report.range.from}-${report.range.to}.pdf`);
 }
 
-/** Captura el nodo del reporte como PNG y lo comparte/descarga. */
-export async function exportReportImage(node: HTMLElement, filename: string): Promise<void> {
-  const dataUrl = await toPng(node, {
-    pixelRatio: 3,
+/** Resultado de la exportación, para elegir el toast adecuado en la página. */
+export type ImageExportResult = "compartida" | "descargada" | "cancelada";
+
+function isAbortError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { name?: string }).name === "AbortError";
+}
+
+/**
+ * Captura el nodo como PNG, intenta compartirlo y, si no se puede, lo
+ * descarga. Correcciones clave: el blob viene directo de toBlob (sin
+ * fetch intermedio), el <a> se adjunta al DOM antes del click (Safari/iOS
+ * lo ignora si está suelto) y el objectURL se revoca con delay para no
+ * cancelar la descarga en curso.
+ */
+export async function exportReportImage(
+  node: HTMLElement,
+  filename: string,
+): Promise<ImageExportResult> {
+  const blob = await toBlob(node, {
+    // La ficha ya vive a 1080×1350: ratio 1 = tamaño exacto de salida.
+    pixelRatio: 1,
     cacheBust: true,
     backgroundColor: "#FFF9EF",
     skipAutoScale: true,
   });
+  if (!blob) throw new Error("No se pudo generar la imagen");
 
-  const blob = await (await fetch(dataUrl)).blob();
-
-  // Intenta compartir (WhatsApp) si el navegador lo permite
+  // Intenta compartir (WhatsApp/estado) si el navegador lo permite.
   if (navigator.share && navigator.canShare) {
     const file = new File([blob], `${filename}.png`, { type: "image/png" });
     if (navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({ files: [file], title: "Reporte Nalu" });
-        return;
-      } catch {
-        // El usuario canceló; se continúa con la descarga.
+        return "compartida";
+      } catch (err) {
+        // El usuario cerró la hoja de compartir: sin error y sin descarga.
+        if (isAbortError(err)) return "cancelada";
+        // Otro fallo del share: fallback a descarga directa.
       }
     }
   }
@@ -221,6 +240,10 @@ export async function exportReportImage(node: HTMLElement, filename: string): Pr
   const link = document.createElement("a");
   link.href = url;
   link.download = `${filename}.png`;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  // Revocar tarde: de inmediato varios navegadores cancelan la descarga.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return "descargada";
 }

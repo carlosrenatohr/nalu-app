@@ -57,11 +57,16 @@ Incluye análisis **por proveedor** (número de compras, paletas y total inverti
 - PDF de compras con análisis por proveedor y detalle.
 - Se genera **en el navegador** (funciona offline y no depende del servidor).
 
-### 2. Imagen para WhatsApp (`html-to-image`)
+### 2. Ficha compartible para WhatsApp (`html-to-image`)
 
-- Captura la **tarjeta de reporte** con branding (fondo crema, encabezado turquesa, números grandes, barras de sabores).
-- Diseñada como **imagen de reporte**, no como captura de pantalla.
-- Si el navegador lo permite, usa **Web Share** para compartir directo (WhatsApp); si no, descarga el PNG.
+- Imagen fija **1080×1350** (formato «ficha corta» 4:5 de Instagram/WhatsApp). En pantalla se muestra escalada con `transform`; la captura siempre sale a tamaño real.
+- **Podio olímpico 2-1-3** de los 3 sabores más vendidos, con el **% colorido arriba de cada icono** (emoji del catálogo; si el sabor no tiene emoji, fallback 🍦).
+- Mini-lista con el **4.º y 5.º** (cada uno con su % colorido) y última línea **«El resto: X %»** (sabores fuera del top 5).
+- Posiciones sin datos muestran **😞 «Sin datos»** — siempre el mismo template, sin huecos vacíos.
+- **QR client-side** (librería `qrcode`, SVG) hacia la raíz de la plataforma: sin servicios externos ni presupuesto.
+- **Frase motivacional y fondo rotativos** en cada generación de imagen: 24 frases + 8 fondos locales con índice en `localStorage` (no se repiten hasta cerrar el ciclo; nada se guarda ni se sube — todo se genera al momento).
+- Los % se calculan sobre las **unidades vendidas del rango**; el QR, la frase y el emoji se resuelven en el frontend, sin tocar el backend.
+- Si el navegador lo permite, usa **Web Share** para compartir directo (WhatsApp); si no, descarga el PNG. Cancelar el compartir **no** descarga nada ni muestra error.
 
 ## Gráficas
 

@@ -9,9 +9,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/).
 - **Toggle ocultar/mostrar la tarjeta de IA** en Inventario (👁️/🙈): el cuerpo colapsa con transición suave (respeta `prefers-reduced-motion`), el contenido oculto queda `inert` y la preferencia persiste en `localStorage`; la app queda 100% operable si el proveedor de IA falla.
 - Mensajes de IA **por código** en la tarjeta (429 «Jev está saturado 💤», timeout, no configurado…): título + pista + detalle del servidor, nunca un estado vacío.
 - Proveedor **Vercel AI Gateway** para Jev (`AI_GATEWAY_API_KEY`, alias `typesafe-ai/jev`) con precedencia sobre OpenCode Zen y contrato de errores compartido (`services/ai/errors.ts`); tests nuevos de gateway y de selección de proveedor.
+- **Ficha compartible de Reportes** (imagen fija 1080×1350, formato «ficha corta» 4:5): podio olímpico 2-1-3 con el % colorido arriba de cada icono, mini-lista del 4.º/5.º, línea «El resto: X %», carita 😞 en posiciones sin datos, QR client-side a la plataforma y frase + fondo rotativos por generación (24 frases y 8 fondos locales; presupuesto 0: todo se genera al momento y nada se guarda).
 
 ### Fixed
 - **`429 AI_RATE_LIMIT` en producción**: OpenCode Zen limita por origen las IPs salientes de Cloudflare Workers; el backend llama a Jev vía Vercel AI Gateway (Zen queda como respaldo local). Diagnóstico en `docs/JEV.md` §12.
+- **Exportación de imagen rota**: el blob sale directo de `toBlob` (sin `fetch` intermedio), el enlace se adjunta al DOM antes del click (Safari/iOS), el `objectURL` se revoca con delay (revocarlo ya cancelaba la descarga) y cancelar el `navigator.share` ya no produce descarga fantasma ni toast de éxito.
 
 ## [1.5.0] - 2026-09-22
 
