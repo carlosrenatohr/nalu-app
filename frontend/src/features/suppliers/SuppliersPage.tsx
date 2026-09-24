@@ -8,8 +8,8 @@ import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
-import { ActionMenu } from "@/components/ui/ActionMenu";
-import { IconPlus, IconStore, IconEdit, IconTrash } from "@/components/ui/icons";
+import { SwipeHint, SwipeRow } from "@/components/ui/SwipeRow";
+import { IconPlus, IconStore, IconEdit, IconPower, IconTrash } from "@/components/ui/icons";
 import { SupplierModal } from "./SupplierModal";
 import type { Supplier } from "@/types";
 
@@ -92,7 +92,39 @@ export function SuppliersPage() {
       ) : suppliers && suppliers.length > 0 ? (
         <ul className="space-y-3">
           {suppliers.map((s) => (
-            <li key={s.id}>
+            <SwipeRow
+              key={s.id}
+              label={`Proveedor ${s.name}`}
+              wide
+              actions={
+                <>
+                  <button
+                    type="button"
+                    aria-label={`Editar proveedor ${s.name}`}
+                    onClick={() => handleEdit(s)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-turquoise text-white shadow-pop transition-transform active:scale-95"
+                  >
+                    <IconEdit className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`${s.active ? "Desactivar" : "Activar"} proveedor ${s.name}`}
+                    onClick={() => setToggleModal(s)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-cocoa text-white shadow-pop transition-transform active:scale-95"
+                  >
+                    <IconPower className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Eliminar proveedor ${s.name}`}
+                    onClick={() => setDeleteModal(s)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-strawberry text-white shadow-pop transition-transform active:scale-95"
+                  >
+                    <IconTrash className="h-5 w-5" />
+                  </button>
+                </>
+              }
+            >
               <Card className="transition-shadow hover:shadow-card">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -111,30 +143,11 @@ export function SuppliersPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <ActionMenu
-                      label={`Acciones de ${s.name}`}
-                      items={[
-                        {
-                          label: "Editar",
-                          icon: <IconEdit className="h-4 w-4" />,
-                          onClick: () => handleEdit(s),
-                        },
-                        {
-                          label: s.active ? "Desactivar" : "Activar",
-                          onClick: () => setToggleModal(s),
-                        },
-                        {
-                          label: "Eliminar",
-                          icon: <IconTrash className="h-4 w-4" />,
-                          danger: true,
-                          onClick: () => setDeleteModal(s),
-                        },
-                      ]}
-                    />
+                    <SwipeHint label={`Acciones de ${s.name}`} />
                   </div>
                 </div>
               </Card>
-            </li>
+            </SwipeRow>
           ))}
         </ul>
       ) : (
