@@ -172,7 +172,7 @@ export function FlavorsPage() {
               <Badge tone="green">{active.length}</Badge>
             </div>
             {active.length > 0 ? (
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {active.map(renderFlavor)}
               </ul>
             ) : (
@@ -189,7 +189,7 @@ export function FlavorsPage() {
               <p className="mb-2 text-xs font-semibold text-cocoa-soft">
                 No aparecen en nuevas ventas ni compras, pero su historial se conserva.
               </p>
-              <ul className="grid grid-cols-2 gap-3 opacity-80 sm:grid-cols-3 lg:grid-cols-4">
+              <ul className="grid grid-cols-1 gap-3 opacity-80 sm:grid-cols-2 lg:grid-cols-4">
                 {inactive.map(renderFlavor)}
               </ul>
             </section>
