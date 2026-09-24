@@ -14,6 +14,7 @@ import { SwipeHint, SwipeRow } from "@/components/ui/SwipeRow";
 import { cn } from "@/lib/utils/cn";
 import { EditSaleModal } from "./EditSaleModal";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
+import { SaleDetailModal } from "./SaleDetailModal";
 import type { Sale } from "@/types";
 
 type Range = "today" | "yesterday" | "7days" | "week" | "month" | "prev" | "all" | "custom";
@@ -124,6 +125,7 @@ export function SalesPage() {
 
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [deletingSale, setDeletingSale] = useState<Sale | null>(null);
+  const [detailSale, setDetailSale] = useState<Sale | null>(null);
 
   return (
     <div className="animate-fade-up space-y-5">
@@ -225,33 +227,40 @@ export function SalesPage() {
             >
               <Card className="transition-shadow hover:shadow-card">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-turquoise/12 text-turquoise-deep">
-                      <IconCart className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <p className="font-extrabold text-cocoa">
-                        {sale.location ?? "Sin ubicación"}
-                        <span className="ml-2 text-xs font-bold text-cocoa-soft">
-                          {formatRelativeDay(sale.saleDate)}
+                  <button
+                    type="button"
+                    onClick={() => setDetailSale(sale)}
+                    aria-label={`Ver detalle de la venta en ${sale.location ?? "sin ubicación"}`}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-turquoise/12 text-turquoise-deep">
+                        <IconCart className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-extrabold text-cocoa">
+                          {sale.location ?? "Sin ubicación"}
+                          <span className="ml-2 text-xs font-bold text-cocoa-soft">
+                            {formatRelativeDay(sale.saleDate)}
+                          </span>
                         </span>
-                      </p>
-                      <p className="line-clamp-1 text-xs text-cocoa-soft">
-                        {sale.items
-                          .map((i) => `${i.flavorName ?? "Sabor"} ×${i.quantity}`)
-                          .join(" · ")}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className="text-lg font-black text-cocoa">{formatMoney(sale.total, currency)}</p>
+                        <span className="block line-clamp-1 text-xs text-cocoa-soft">
+                          {sale.items
+                            .map((i) => `${i.flavorName ?? "Sabor"} ×${i.quantity}`)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="block text-lg font-black text-cocoa">
+                        {formatMoney(sale.total, currency)}
+                      </span>
                       <Badge tone="green">+{formatMoney(sale.profit ?? 0, currency)}</Badge>
-                    </div>
-                    <SwipeHint
-                      label={`Acciones de la venta en ${sale.location ?? "sin ubicación"}`}
-                    />
-                  </div>
+                    </span>
+                  </button>
+                  <SwipeHint
+                    label={`Acciones de la venta en ${sale.location ?? "sin ubicación"}`}
+                  />
                 </div>
               </Card>
             </SwipeRow>
@@ -291,6 +300,17 @@ export function SalesPage() {
         sale={editingSale}
         onClose={() => setEditingSale(null)}
         onSaved={reload}
+      />
+
+      {/* Detalle de la venta (desglose por línea) */}
+      <SaleDetailModal
+        open={Boolean(detailSale)}
+        sale={detailSale}
+        onClose={() => setDetailSale(null)}
+        onEdit={() => {
+          setEditingSale(detailSale);
+          setDetailSale(null);
+        }}
       />
 
       {/* Modal eliminar venta */}

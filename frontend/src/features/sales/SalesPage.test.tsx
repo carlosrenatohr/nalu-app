@@ -118,4 +118,15 @@ describe("Ventas (lista paginada)", () => {
     expect(screen.queryByRole("button", { name: /Cargar más/ })).not.toBeInTheDocument();
     expect(screen.getByText(/3 ventas/)).toBeInTheDocument();
   });
+
+  it("tocar la fila abre el detalle de la venta", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SalesPage />);
+    await screen.findByText("Casa");
+
+    await user.click(screen.getByRole("button", { name: "Ver detalle de la venta en Casa" }));
+
+    expect(await screen.findByText("Detalle de venta")).toBeInTheDocument();
+    expect(screen.getByText("Coco")).toBeInTheDocument();
+  });
 });
