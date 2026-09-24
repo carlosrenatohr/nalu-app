@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { IconCart, IconPlus, IconEdit, IconTrash } from "@/components/ui/icons";
-import { ActionMenu } from "@/components/ui/ActionMenu";
+import { SwipeHint, SwipeRow } from "@/components/ui/SwipeRow";
 import { cn } from "@/lib/utils/cn";
 import { EditSaleModal } from "./EditSaleModal";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
@@ -199,7 +199,30 @@ export function SalesPage() {
         <>
         <ul className="space-y-3">
           {sales.map((sale: Sale) => (
-            <li key={sale.id}>
+            <SwipeRow
+              key={sale.id}
+              label={`Venta en ${sale.location ?? "sin ubicación"}`}
+              actions={
+                <>
+                  <button
+                    type="button"
+                    aria-label={`Editar venta en ${sale.location ?? "sin ubicación"}`}
+                    onClick={() => setEditingSale(sale)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-turquoise text-white shadow-pop transition-transform active:scale-95"
+                  >
+                    <IconEdit className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Eliminar venta en ${sale.location ?? "sin ubicación"}`}
+                    onClick={() => setDeletingSale(sale)}
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-strawberry text-white shadow-pop transition-transform active:scale-95"
+                  >
+                    <IconTrash className="h-5 w-5" />
+                  </button>
+                </>
+              }
+            >
               <Card className="transition-shadow hover:shadow-card">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -225,26 +248,13 @@ export function SalesPage() {
                       <p className="text-lg font-black text-cocoa">{formatMoney(sale.total, currency)}</p>
                       <Badge tone="green">+{formatMoney(sale.profit ?? 0, currency)}</Badge>
                     </div>
-                    <ActionMenu
+                    <SwipeHint
                       label={`Acciones de la venta en ${sale.location ?? "sin ubicación"}`}
-                      items={[
-                        {
-                          label: "Editar",
-                          icon: <IconEdit className="h-4 w-4" />,
-                          onClick: () => setEditingSale(sale),
-                        },
-                        {
-                          label: "Eliminar",
-                          icon: <IconTrash className="h-4 w-4" />,
-                          danger: true,
-                          onClick: () => setDeletingSale(sale),
-                        },
-                      ]}
                     />
                   </div>
                 </div>
               </Card>
-            </li>
+            </SwipeRow>
           ))}
         </ul>
         {hasMore ? (

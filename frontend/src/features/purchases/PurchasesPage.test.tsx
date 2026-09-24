@@ -6,8 +6,8 @@ import { PurchasesPage } from "./PurchasesPage";
 import type { Purchase } from "@/types";
 
 // ---------------------------------------------------------------------
-// Lista de compras: tocar la fila abre el detalle (desglose por línea),
-// deslizar revela Editar/Eliminar y el menú kebab sigue disponible.
+// Lista de compras: tocar la fila abre el detalle (desglose por línea) y
+// deslizar (o tocar el ícono «) revela Editar/Eliminar.
 // ---------------------------------------------------------------------
 
 const purchase: Purchase = {

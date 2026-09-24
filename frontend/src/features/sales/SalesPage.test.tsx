@@ -90,6 +90,9 @@ describe("Ventas (lista paginada)", () => {
     renderWithProviders(<SalesPage />);
     expect(await screen.findByText("Casa")).toBeInTheDocument();
     expect(screen.getByText("Puesto")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Acciones de la venta en Casa" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Otro")).not.toBeInTheDocument();
     expect(screen.getByText(/2 de 3 ventas/)).toBeInTheDocument();
     expect(salesApi.listPage).toHaveBeenCalledWith(expect.any(String), expect.any(String), 1, 20);

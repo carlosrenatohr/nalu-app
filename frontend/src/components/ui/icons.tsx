@@ -225,6 +225,26 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+/** Doble chevron «: affordance de "desliza hacia la izquierda". */
+export function IconSwipeLeft(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M13 7l-5 5 5 5" />
+      <path d="M19 7l-5 5 5 5" />
+    </Base>
+  );
+}
+
+/** Encendido/apagado (activo ↔ inactivo). */
+export function IconPower(props: IconProps) {
+  return (
+    <Base {...props}>
+      <path d="M12 3v9" />
+      <path d="M6.6 6.2a8 8 0 1 0 10.8 0" />
+    </Base>
+  );
+}
+
 export function IconUser(props: IconProps) {
   return (
     <Base {...props}>

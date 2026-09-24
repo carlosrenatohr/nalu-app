@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PageLoader } from "@/components/ui/Spinner";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ActionMenu } from "@/components/ui/ActionMenu";
-import { SwipeRow } from "@/components/ui/SwipeRow";
+import { SwipeHint, SwipeRow } from "@/components/ui/SwipeRow";
 import { IconEdit, IconPlus, IconStore, IconTrash } from "@/components/ui/icons";
 import { EditPurchaseModal } from "./EditPurchaseModal";
 import { ConfirmDeletePurchaseModal } from "./ConfirmDeletePurchaseModal";
@@ -17,8 +16,8 @@ import { PurchaseDetailModal } from "./PurchaseDetailModal";
 import type { Purchase } from "@/types";
 
 // ---------------------------------------------------------------------
-// Lista de compras: tocar la fila abre el detalle (desglose), el menú
-// kebab (o deslizar la fila a la izquierda) permite editar/eliminar.
+// Lista de compras: tocar la fila abre el detalle (desglose) y el ícono
+// « (o deslizar la fila a la izquierda) permite editar/eliminar.
 // ---------------------------------------------------------------------
 
 export function PurchasesPage() {
@@ -111,21 +110,8 @@ export function PurchasesPage() {
                       </span>
                     </span>
                   </button>
-                  <ActionMenu
+                  <SwipeHint
                     label={`Acciones de la compra de ${purchase.supplierName ?? "este proveedor"}`}
-                    items={[
-                      {
-                        label: "Editar",
-                        icon: <IconEdit className="h-4 w-4" />,
-                        onClick: () => setEditing(purchase),
-                      },
-                      {
-                        label: "Eliminar",
-                        icon: <IconTrash className="h-4 w-4" />,
-                        danger: true,
-                        onClick: () => setDeleting(purchase),
-                      },
-                    ]}
                   />
                 </div>
               </Card>
