@@ -45,6 +45,7 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
   const [paymentType, setPaymentType] = useState<PaymentType>(sale?.paymentType ?? "cash");
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+  const [onlyIncluded, setOnlyIncluded] = useState(false);
 
   // Inicializar cantidades desde la venta existente
   useEffect(() => {
@@ -83,16 +84,19 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
 
   // Sabores seleccionables: activos (o ya incluidos en la venta), filtrables
   // por nombre sin acentos y ordenados del más escaso al más disponible.
+  // «Solo incluidos» deja únicamente los que ya tienen cantidad (> 0),
+  // idéntico al comportamiento del formulario de compras.
   const visibleFlavors = useMemo(
     () =>
       (inventory.data ?? [])
         .filter(
           (inv) =>
             isSelectableFlavor(inv.flavor, quantities[inv.flavor.id] ?? 0) &&
+            (!onlyIncluded || (quantities[inv.flavor.id] ?? 0) > 0) &&
             matchesSearch(query, inv.flavor.name),
         )
         .sort((a, b) => a.available - b.available),
-    [inventory.data, query, quantities],
+    [inventory.data, query, quantities, onlyIncluded],
   );
 
   const selectedLines = useMemo(
@@ -215,7 +219,18 @@ export function EditSaleModal({ open, sale, onClose, onSaved }: EditSaleModalPro
 
         {/* Sabores */}
         <div>
-          <span className="mb-2 block text-sm font-bold text-cocoa-soft">Sabores</span>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-bold text-cocoa-soft">Sabores</span>
+            <label className="flex items-center gap-1.5 text-xs font-bold text-cocoa-soft">
+              <input
+                type="checkbox"
+                checked={onlyIncluded}
+                onChange={(e) => setOnlyIncluded(e.target.checked)}
+                className="h-4 w-4 rounded accent-turquoise"
+              />
+              Solo incluidos
+            </label>
+          </div>
           <SearchInput value={query} onChange={setQuery} className="mb-3" />
           <ul className="space-y-2.5">
             {visibleFlavors.map((inv) => (
