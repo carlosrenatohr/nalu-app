@@ -57,6 +57,7 @@ export function NewSalePage() {
   const [notes, setNotes] = useState("");
   const [paymentType, setPaymentType] = useState<PaymentType>("cash");
   const [query, setQuery] = useState("");
+  const [onlyIncluded, setOnlyIncluded] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Borrador: recupera uno guardado o crea uno nuevo mientras se edita.
@@ -128,15 +129,20 @@ export function NewSalePage() {
 
   // Solo sabores ACTIVOS y con stock, filtrables por nombre (sin acentos).
   // Orden: menor stock primero (lo más al límite se ve antes).
+  // «Solo incluidos» deja únicamente los que ya tienen cantidad (> 0),
+  // idéntico al comportamiento del formulario de compras.
   const visibleFlavors = useMemo(
     () =>
       (inventory.data ?? [])
         .filter(
           (inv) =>
-            inv.flavor.active && inv.available > 0 && matchesSearch(query, inv.flavor.name),
+            inv.flavor.active &&
+            inv.available > 0 &&
+            (!onlyIncluded || (quantities[inv.flavor.id] ?? 0) > 0) &&
+            matchesSearch(query, inv.flavor.name),
         )
         .sort((a, b) => a.available - b.available),
-    [inventory.data, query],
+    [inventory.data, query, quantities, onlyIncluded],
   );
 
   const parsedCustom = customPrice !== "" ? Number(customPrice) : null;
@@ -331,14 +337,25 @@ export function NewSalePage() {
       <div>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-bold text-cocoa-soft">Sabores</span>
-          <button
-            type="button"
-            onClick={() => setFlavorModalOpen(true)}
-            className="flex items-center gap-1 text-xs font-bold text-turquoise-deep hover:underline"
-          >
-            <IconPlus className="h-4 w-4" />
-            Nuevo
-          </button>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-cocoa-soft">
+              <input
+                type="checkbox"
+                checked={onlyIncluded}
+                onChange={(e) => setOnlyIncluded(e.target.checked)}
+                className="h-4 w-4 rounded accent-turquoise"
+              />
+              Solo incluidos
+            </label>
+            <button
+              type="button"
+              onClick={() => setFlavorModalOpen(true)}
+              className="flex items-center gap-1 text-xs font-bold text-turquoise-deep hover:underline"
+            >
+              <IconPlus className="h-4 w-4" />
+              Nuevo
+            </button>
+          </div>
         </div>
         <SearchInput value={query} onChange={setQuery} className="mb-3" />
         {visibleFlavors.length === 0 ? (
